@@ -58,7 +58,7 @@ npm run dev
 
 ## ☕ 支持開發
 如果這個工具對你有幫助，歡迎支持開發：
-👉 支持若若
+👉 [支持若真](https://ruoruojinjin.github.io/donate.html)
 你的支持將幫助我持續優化與新增功能 ❤️
 
 #### ⚠️ 聲明
