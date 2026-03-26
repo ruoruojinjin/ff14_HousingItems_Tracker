@@ -1,7 +1,7 @@
 # 🏠 FF14 Housing Items Tracker ✨ 房屋家具清單工具
 >　一個為《Final Fantasy XIV》房屋裝潢玩家設計的小工具，用來整理家具清單、規劃採購流程，讓裝潢更有效率。
 
-##### 👉 [線上使用](https://ruoruojinjin.github.io/ff14_HousingItems_Tracker)
+#### 👉 [線上使用](https://ruoruojinjin.github.io/ff14_HousingItems_Tracker)
 
 ## ✨ 功能特色
 📦 家具清單整理與統計：集中管理你設計中所需的家具。
