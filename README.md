@@ -61,6 +61,6 @@ npm run dev
 👉 [支持若真](https://ruoruojinjin.github.io/donate.html)  
 你的支持將幫助我持續優化與新增功能 ❤️
 
-#### ⚠️ 聲明
+##### ⚠️ 聲明
 > 本專案為玩家自製工具，僅供學習與個人使用。
 所有遊戲相關素材與資料版權屬於 Square Enix。
