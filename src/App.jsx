@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import ITEMS_DATA from "./items.json";
-import { Search, Sun, Moon, Trash2, Download, Package, ListFilter } from "lucide-react";
+import { Search, Sun, Moon, Trash2, Download, Package, ListFilter, Upload } from "lucide-react";
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
 const ls = {
@@ -69,6 +69,76 @@ function exportCSV(quantities) {
     download: "ff14_furniture.csv",
   });
   a.click(); URL.revokeObjectURL(a.href);
+}
+
+
+// ─── MAKEPLACE JSON 匯入 ──────────────────────────────────────────────────────
+// 支援 Re:MakePlace / MakePlace JSON 格式（UTF-16 LE）
+// 讀取 interiorFurniture + exteriorFurniture，用 itemId 比對 items.json
+function parseMakePlaceJSON(text) {
+  try {
+    const data = JSON.parse(text);
+    const allItems = [
+      ...(data.interiorFurniture  || []),
+      ...(data.exteriorFurniture  || []),
+    ];
+    // 統計每個 itemId 出現次數
+    const counts = {};
+    for (const item of allItems) {
+      const id = item.itemId;
+      if (!id || id === 0) continue;
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    return counts; // { [itemId]: count }
+  } catch (e) {
+    return null;
+  }
+}
+
+function importMakePlaceFile(setQuantities) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    // 先嘗試 UTF-16 LE（MakePlace 預設）
+    reader.onload = (ev) => {
+      let text = ev.target.result;
+      // 如果解析失敗，嘗試 UTF-8
+      let counts = parseMakePlaceJSON(text);
+      if (!counts) {
+        alert("無法解析此 JSON 檔案，請確認是 MakePlace / Re:MakePlace 匯出的格式。");
+        return;
+      }
+      // 只保留 items.json 裡有的物品
+      const knownIds = new Set(ITEMS_DATA.map(it => it.id));
+      const matched = {};
+      let total = 0, unknown = 0;
+      for (const [id, cnt] of Object.entries(counts)) {
+        if (knownIds.has(Number(id))) {
+          matched[Number(id)] = cnt;
+          total += cnt;
+        } else {
+          unknown++;
+        }
+      }
+      setQuantities(prev => {
+        // 合併：匯入數量疊加到現有數量
+        const next = { ...prev };
+        for (const [id, cnt] of Object.entries(matched)) {
+          next[Number(id)] = (next[Number(id)] || 0) + cnt;
+        }
+        return next;
+      });
+      alert(`✅ 匯入完成！
+共 ${total} 件傢俱已加入清單。${unknown > 0 ? `
+（${unknown} 件不在資料庫中，已略過）` : ""}`);
+    };
+    reader.readAsText(file, "UTF-16LE");
+  };
+  input.click();
 }
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
@@ -329,6 +399,9 @@ export default function App() {
             <span className="hd-sub">FINAL FANTASY XIV — Housing Planner</span>
           </div>
           <div className="hd-r">
+            <button className="btn" onClick={() => importMakePlaceFile(setQuantities)}>
+              <Upload size={12} />匯入 MakePlace
+            </button>
             <button className="btn btn-del" onClick={() => setQuantities({})}>
               <Trash2 size={12} />清空數量
             </button>
