@@ -47,8 +47,8 @@ npm run dev
 
 匯出 CSV，帶去市場購買 🛒。
 
-## 🚀 未來規劃 Roadmap
-🔄 支援 Re: MakePlace / MakePlace JSON 匯入
+## 🚀 未來規劃 Roadma
+✅ (已完成) 支援 Re: MakePlace / MakePlace JSON 匯入
 
 📤 匯出至 Teamcraft (購物 / 製作清單)
 
