@@ -55,14 +55,14 @@ function shareToDiscord() { try { navigator.clipboard.writeText(SITE_TITLE + "\n
 function copyLink()       { try { navigator.clipboard.writeText(SITE_URL); alert("連結已複製！"); } catch { alert(SITE_URL); } }
 
 // ─── CSV 匯出 ─────────────────────────────────────────────────────────────────
-function exportCSV(quantities) {
+function exportCSV(quantities, bought) {
   const sel = ITEMS_DATA.filter(it => (quantities[it.id] || 0) > 0);
   if (!sel.length) { alert("尚未選取任何傢俱"); return; }
   const total = sel.reduce((s, it) => s + quantities[it.id], 0);
   const rows  = [
-    "\uFEFF名稱,分類,數量,總數",
-    ...sel.map(it => `${displayName(it)},${it.category},${quantities[it.id]},`),
-    `,,共計,${total}`,
+    "\uFEFF名稱,分類,需要,已買,總數",
+    ...sel.map(it => `${displayName(it)},${it.category},${quantities[it.id]},${bought[it.id]||0},`),
+    `,,,共計,${total}`,
   ].join("\n");
   const a = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(new Blob([rows], { type: "text/csv;charset=utf-8;" })),
@@ -82,14 +82,13 @@ function parseMakePlaceJSON(text) {
       ...(data.interiorFurniture  || []),
       ...(data.exteriorFurniture  || []),
     ];
-    // 統計每個 itemId 出現次數
     const counts = {};
     for (const item of allItems) {
       const id = item.itemId;
       if (!id || id === 0) continue;
       counts[id] = (counts[id] || 0) + 1;
     }
-    return counts; // { [itemId]: count }
+    return { counts, data }; // 回傳 data 供後續查名稱
   } catch (e) {
     return null;
   }
@@ -107,34 +106,41 @@ function importMakePlaceFile(setQuantities) {
     reader.onload = (ev) => {
       let text = ev.target.result;
       // 如果解析失敗，嘗試 UTF-8
-      let counts = parseMakePlaceJSON(text);
-      if (!counts) {
+      const parsed = parseMakePlaceJSON(text);
+      if (!parsed) {
         alert("無法解析此 JSON 檔案，請確認是 MakePlace / Re:MakePlace 匯出的格式。");
         return;
       }
-      // 只保留 items.json 裡有的物品
+      const { counts, data } = parsed;
       const knownIds = new Set(ITEMS_DATA.map(it => it.id));
       const matched = {};
-      let total = 0, unknown = 0;
+      let total = 0;
+      const unknownItems = [];
       for (const [id, cnt] of Object.entries(counts)) {
         if (knownIds.has(Number(id))) {
           matched[Number(id)] = cnt;
           total += cnt;
         } else {
-          unknown++;
+          const allItems = [...(data.interiorFurniture||[]), ...(data.exteriorFurniture||[])];
+          const found = allItems.find(it => it.itemId === Number(id));
+          unknownItems.push({ id: Number(id), name: found?.name || "(unknown)", count: cnt });
         }
       }
       setQuantities(prev => {
-        // 合併：匯入數量疊加到現有數量
         const next = { ...prev };
         for (const [id, cnt] of Object.entries(matched)) {
           next[Number(id)] = (next[Number(id)] || 0) + cnt;
         }
         return next;
       });
-      alert(`✅ 匯入完成！
-共 ${total} 件傢俱已加入清單。${unknown > 0 ? `
-（${unknown} 件不在資料庫中，已略過）` : ""}`);
+      let msg = `✅ 匯入完成！\n共 ${total} 件傢俱已加入清單。`;
+      if (unknownItems.length > 0) {
+        msg += `\n\n⚠️ ${unknownItems.length} 件不在資料庫中（已略過）：`;
+        for (const u of unknownItems) {
+          msg += `\n  • ${u.name}（ID: ${u.id}）× ${u.count}`;
+        }
+      }
+      alert(msg);
     };
     reader.readAsText(file, "UTF-16LE");
   };
@@ -244,6 +250,8 @@ const STYLES = `
   .ic:hover { background:var(--bgch); border-color:var(--bra); box-shadow:0 0 10px var(--accg); }
   .ic.sel   { background:var(--bgh); border-color:var(--accd); box-shadow:0 0 9px var(--accg); }
   .ic.sel:hover { box-shadow:0 0 15px var(--accgh); }
+  .ic.done  { background:rgba(63,185,80,0.08); border-color:rgba(63,185,80,0.4); box-shadow:0 0 10px rgba(63,185,80,0.12); }
+  .ic.done:hover { box-shadow:0 0 16px rgba(63,185,80,0.2); }
   .ii  { flex:1; min-width:0; display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
   .in  { font-size:13px; font-weight:500; color:var(--tp); }
   .ic.sel .in { color:var(--acc); }
@@ -281,9 +289,9 @@ const STYLES = `
   .sss { font-size:15px; color:var(--ts); font-variant-numeric:tabular-nums; }
   .sbl { flex:1; padding:10px 15px 16px; display:flex; flex-direction:column; gap:4px; }
   .sblt { font-size:12px; color:var(--tm); letter-spacing:.06em; text-transform:uppercase; margin-bottom:7px; }
-  .sbi { display:flex; align-items:center; padding:6px 10px; border-radius:5px; border-left:2px solid var(--accd); background:var(--bgc); gap:6px; }
+  .sbi { display:flex; align-items:center; padding:6px 10px; border-radius:5px; border-left:2px solid var(--accd); background:var(--bgc); gap:5px; flex-wrap:wrap; }
   .sbin { font-size:15px; color:var(--tp); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sbi-ctrl { display:flex; align-items:center; gap:5px; margin-left:auto; flex-shrink:0; }
+  .sbi-ctrl { display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0; flex-wrap:nowrap; }
   .sbi-btn {
     width:26px; height:26px; border-radius:5px; border:1px solid var(--br);
     background:var(--btb); color:var(--ts); font-size:16px; cursor:pointer;
@@ -292,6 +300,8 @@ const STYLES = `
   }
   .sbi-btn:hover:not(:disabled) { background:var(--bth); color:var(--tp); border-color:var(--accd); }
   .sbi-btn:disabled { opacity:.35; cursor:default; }
+  .sbi-lbl { font-size:10px; color:var(--tm); white-space:nowrap; }
+  .sbi-sep { color:var(--br); font-size:14px; margin:0 2px; }
   .sbiq { min-width:28px; text-align:center; font-size:14px; font-weight:600; color:var(--acc); font-variant-numeric:tabular-nums; }
   .sbe { font-size:14px; color:var(--tm); text-align:center; padding:22px 0; line-height:1.8; }
 
@@ -327,19 +337,34 @@ const STYLES = `
 export default function App() {
   const [isDark,     setIsDark]     = useState(() => ls.get("ff14_theme", "dark") === "dark");
   const [quantities, setQuantities] = useState(() => ls.getJSON("ff14_qty", {}));
+  const [bought,     setBought]     = useState(() => ls.getJSON("ff14_bought", {}));
   const [activeCat,  setActiveCat]  = useState("全部");
   const [search,     setSearch]     = useState("");
 
   useEffect(() => { ls.set("ff14_theme", isDark ? "dark" : "light"); }, [isDark]);
   useEffect(() => { ls.setJSON("ff14_qty", quantities); }, [quantities]);
+  useEffect(() => { ls.setJSON("ff14_bought", bought); }, [bought]);
 
   const adjustQty = useCallback((id, delta) => {
     setQuantities(prev => {
       const next = Math.max(0, (prev[id] || 0) + delta);
-      if (next === 0) { const { [id]: _, ...rest } = prev; return rest; }
+      if (next === 0) {
+        // 需要歸零時，已買也歸零
+        setBought(b => { const { [id]: _, ...rest } = b; return rest; });
+        const { [id]: _, ...rest } = prev; return rest;
+      }
       return { ...prev, [id]: next };
     });
   }, []);
+
+  const adjustBought = useCallback((id, delta) => {
+    setBought(prev => {
+      const max = quantities[id] || 0;
+      const next = Math.max(0, Math.min(max, (prev[id] || 0) + delta));
+      if (next === 0) { const { [id]: _, ...rest } = prev; return rest; }
+      return { ...prev, [id]: next };
+    });
+  }, [quantities]);
 
   const filteredItems = useMemo(() =>
     ITEMS_DATA.filter(it => {
@@ -405,7 +430,7 @@ export default function App() {
             <button className="btn btn-del" onClick={() => setQuantities({})}>
               <Trash2 size={12} />清空數量
             </button>
-            <button className="btn btn-acc" onClick={() => exportCSV(quantities)}>
+            <button className="btn btn-acc" onClick={() => exportCSV(quantities, bought)}>
               <Download size={12} />匯出 CSV
             </button>
             <button className="btn btn-ic" onClick={() => setIsDark(d => !d)}>
@@ -444,20 +469,22 @@ export default function App() {
                   </div>
                 ) : pagedItems.map(it => {
                   const qty = quantities[it.id] || 0;
+                  const bqty = bought[it.id] || 0;
+                  const done = qty > 0 && bqty >= qty;
                   return (
-                    <div key={it.id} className={`ic${qty > 0 ? " sel" : ""}`}>
-                      <div className="ii">
-                        <span className="in">{displayName(it)}</span>
-                        <div className="tgs">
-                          <span className="tg">{it.category}</span>
-                          <span className="tg">{it.subcategory}</span>
-                        </div>
-                      </div>
-                      <div className="qc">
-                        <button className="qb" onClick={() => adjustQty(it.id, -1)} disabled={qty === 0}>−</button>
-                        <span className="qd">{qty}</span>
-                        <button className="qb" onClick={() => adjustQty(it.id, 1)}>＋</button>
-                      </div>
+                    <div key={it.id} className={`ic${qty > 0 ? (done ? " done" : " sel") : ""}`}>
+                          <div className="ii">
+                            <span className="in">{displayName(it)}</span>
+                            <div className="tgs">
+                              <span className="tg">{it.category}</span>
+                              <span className="tg">{it.subcategory}</span>
+                            </div>
+                          </div>
+                          <div className="qc">
+                            <button className="qb" onClick={() => adjustQty(it.id, -1)} disabled={qty === 0}>−</button>
+                            <span className="qd">{qty}</span>
+                            <button className="qb" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                          </div>
                     </div>
                   );
                 })}
@@ -490,16 +517,30 @@ export default function App() {
               <div className="sblt">明細</div>
               {selectedItems.length === 0 ? (
                 <div className="sbe">尚未選取任何傢俱<br />點擊 + 開始規劃</div>
-              ) : selectedItems.map(it => (
-                <div key={it.id} className="sbi">
-                  <span className="sbin" title={displayName(it)}>{displayName(it)}</span>
-                  <div className="sbi-ctrl">
-                    <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
-                    <span className="sbiq">{quantities[it.id]}</span>
-                    <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
+              ) : selectedItems.map(it => {
+                const bqty = bought[it.id] || 0;
+                const need = quantities[it.id] || 0;
+                const done = bqty >= need;
+                return (
+                  <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {}}>
+                    <span className="sbin" title={displayName(it)}>
+                      {done && <span style={{color:"#3fb950",marginRight:4}}>✔</span>}
+                      {displayName(it)}
+                    </span>
+                    <div className="sbi-ctrl">
+                      <span className="sbi-lbl">需要</span>
+                      <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={need===0}>−</button>
+                      <span className="sbiq">{need}</span>
+                      <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                      <span className="sbi-sep">|</span>
+                      <span className="sbi-lbl">已買</span>
+                      <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={bqty===0}>−</button>
+                      <span className="sbiq" style={{color: done ? "#3fb950" : undefined}}>{bqty}</span>
+                      <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={bqty >= need}>＋</button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </aside>
         </div>
