@@ -570,7 +570,7 @@ export default function App() {
             </div>
           </div>
           <div className="ft-bottom">
-            <span>版本 <span className="ft-hi">1.0</span></span>
+            <span>版本 <span className="ft-hi">1.2</span></span>
             <span>•</span>
             <span>作者：<span className="ft-hi">若真</span></span>
             <span>•</span>
