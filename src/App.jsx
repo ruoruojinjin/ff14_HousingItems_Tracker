@@ -252,11 +252,17 @@ const STYLES = `
   .ic.sel:hover { box-shadow:0 0 15px var(--accgh); }
   .ic.done  { background:rgba(63,185,80,0.08); border-color:rgba(63,185,80,0.4); box-shadow:0 0 10px rgba(63,185,80,0.12); }
   .ic.done:hover { box-shadow:0 0 16px rgba(63,185,80,0.2); }
+  .qc-wrap  { display:flex; align-items:center; gap:10px; }
+  .qc-group { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .qc-label { font-size:9px; color:var(--tm); letter-spacing:.04em; text-transform:uppercase; }
+  .done-check { font-size:16px; color:#3fb950; margin-left:2px; }
   .ii  { flex:1; min-width:0; display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
   .in  { font-size:13px; font-weight:500; color:var(--tp); }
   .ic.sel .in { color:var(--acc); }
-  .tgs { display:flex; gap:4px; flex-wrap:wrap; }
+  .tgs { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
   .tg  { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid var(--br); color:var(--tm); background:var(--bg2); white-space:nowrap; }
+  .tg-patch  { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid rgba(201,168,76,.3); color:var(--accd); background:var(--accg); white-space:nowrap; }
+  .tg-src    { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid var(--border2,#2a3540); color:#7a8fa0; background:rgba(255,255,255,.03); white-space:nowrap; }
   .qc  { display:flex; align-items:center; gap:5px; }
   .qb  {
     width:25px; height:25px; border-radius:5px; border:1px solid var(--br);
@@ -289,9 +295,9 @@ const STYLES = `
   .sss { font-size:15px; color:var(--ts); font-variant-numeric:tabular-nums; }
   .sbl { flex:1; padding:10px 15px 16px; display:flex; flex-direction:column; gap:4px; }
   .sblt { font-size:12px; color:var(--tm); letter-spacing:.06em; text-transform:uppercase; margin-bottom:7px; }
-  .sbi { display:flex; align-items:center; padding:6px 10px; border-radius:5px; border-left:2px solid var(--accd); background:var(--bgc); gap:5px; flex-wrap:wrap; }
+  .sbi { display:flex; align-items:center; padding:6px 10px; border-radius:5px; border-left:2px solid var(--accd); background:var(--bgc); gap:6px; }
   .sbin { font-size:15px; color:var(--tp); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sbi-ctrl { display:flex; align-items:center; gap:4px; margin-left:auto; flex-shrink:0; flex-wrap:nowrap; }
+  .sbi-ctrl { display:flex; align-items:center; gap:5px; margin-left:auto; flex-shrink:0; }
   .sbi-btn {
     width:26px; height:26px; border-radius:5px; border:1px solid var(--br);
     background:var(--btb); color:var(--ts); font-size:16px; cursor:pointer;
@@ -300,8 +306,6 @@ const STYLES = `
   }
   .sbi-btn:hover:not(:disabled) { background:var(--bth); color:var(--tp); border-color:var(--accd); }
   .sbi-btn:disabled { opacity:.35; cursor:default; }
-  .sbi-lbl { font-size:10px; color:var(--tm); white-space:nowrap; }
-  .sbi-sep { color:var(--br); font-size:14px; margin:0 2px; }
   .sbiq { min-width:28px; text-align:center; font-size:14px; font-weight:600; color:var(--acc); font-variant-numeric:tabular-nums; }
   .sbe { font-size:14px; color:var(--tm); text-align:center; padding:22px 0; line-height:1.8; }
 
@@ -478,12 +482,30 @@ export default function App() {
                             <div className="tgs">
                               <span className="tg">{it.category}</span>
                               <span className="tg">{it.subcategory}</span>
+                              {it.patch && <span className="tg-patch">{it.patch}</span>}
+                              {it.sources && it.sources.map(s => (
+                                <span key={s} className="tg-src">{s}</span>
+                              ))}
                             </div>
                           </div>
-                          <div className="qc">
-                            <button className="qb" onClick={() => adjustQty(it.id, -1)} disabled={qty === 0}>−</button>
-                            <span className="qd">{qty}</span>
-                            <button className="qb" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                          <div className="qc-wrap">
+                            <div className="qc-group">
+                              <span className="qc-label">需要</span>
+                              <div className="qc">
+                                <button className="qb" onClick={() => adjustQty(it.id, -1)} disabled={qty === 0}>−</button>
+                                <span className="qd">{qty}</span>
+                                <button className="qb" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                              </div>
+                            </div>
+                            <div className="qc-group">
+                              <span className="qc-label">已買</span>
+                              <div className="qc">
+                                <button className="qb" onClick={() => adjustBought(it.id, -1)} disabled={bqty === 0}>−</button>
+                                <span className="qd" style={{color: done ? "#3fb950" : undefined}}>{bqty}</span>
+                                <button className="qb" onClick={() => adjustBought(it.id, 1)} disabled={bqty >= qty}>＋</button>
+                              </div>
+                            </div>
+                            {done && <span className="done-check">✔</span>}
                           </div>
                     </div>
                   );
@@ -519,8 +541,7 @@ export default function App() {
                 <div className="sbe">尚未選取任何傢俱<br />點擊 + 開始規劃</div>
               ) : selectedItems.map(it => {
                 const bqty = bought[it.id] || 0;
-                const need = quantities[it.id] || 0;
-                const done = bqty >= need;
+                const done = bqty >= (quantities[it.id] || 0);
                 return (
                   <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {}}>
                     <span className="sbin" title={displayName(it)}>
@@ -528,15 +549,9 @@ export default function App() {
                       {displayName(it)}
                     </span>
                     <div className="sbi-ctrl">
-                      <span className="sbi-lbl">需要</span>
-                      <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={need===0}>−</button>
-                      <span className="sbiq">{need}</span>
+                      <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
+                      <span className="sbiq">{quantities[it.id]}</span>
                       <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
-                      <span className="sbi-sep">|</span>
-                      <span className="sbi-lbl">已買</span>
-                      <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={bqty===0}>−</button>
-                      <span className="sbiq" style={{color: done ? "#3fb950" : undefined}}>{bqty}</span>
-                      <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={bqty >= need}>＋</button>
                     </div>
                   </div>
                 );
