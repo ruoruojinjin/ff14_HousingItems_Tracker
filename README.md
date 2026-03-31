@@ -47,7 +47,7 @@ npm run dev
 
 匯出 CSV，帶去市場購買 🛒。
 
-## 🚀 未來規劃 Roadma
+## 🚀 未來規劃 Roadma (已完成)
 ✅ (已完成) 支援 Re: MakePlace / MakePlace JSON 匯入
 
 ✅ 物品所屬版本（Patch）顯示
