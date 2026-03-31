@@ -59,8 +59,6 @@ npm run dev
 ✅ 物品詳細資料連結
 點擊物品名稱可直接前往[市場](https://beherw.github.io/FFXIV_Market/)
 
-📤 匯出至 Teamcraft (購物 / 製作清單)
-
 ✅ 染色與分類統計
 
 ✅ 多語言支援
