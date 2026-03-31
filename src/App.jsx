@@ -783,16 +783,24 @@ export default function App() {
                 const done = bqty >= (quantities[it.id] || 0);
                 return (
                   <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {}}>
-                    <a
-                      className="sbin"
-                      href={t.wikiUrl(it)}
-                      target="_blank" rel="noreferrer"
-                      title={t.displayName(it)}
-                      style={{textDecoration:"none",cursor:"pointer"}}
-                    >
-                      {done && <span style={{color:"#3fb950",marginRight:4}}>✔</span>}
-                      {t.displayName(it)}
-                    </a>
+                    <div style={{flex:1, minWidth:0}}>
+                      <a
+                        className="sbin"
+                        href={t.wikiUrl(it)}
+                        target="_blank" rel="noreferrer"
+                        title={t.displayName(it)}
+                        style={{textDecoration:"none",cursor:"pointer"}}
+                      >
+                        {done && <span style={{color:"#3fb950",marginRight:4}}>✔</span>}
+                        {t.displayName(it)}
+                      </a>
+                      <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:3}}>
+                        {it.patch && <span className="tg-patch">{it.patch}</span>}
+                        {it.sources && it.sources.map(s => (
+                          <span key={s} className="tg-src">{s}</span>
+                        ))}
+                      </div>
+                    </div>
                     <div className="sbi-ctrl">
                       <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
                       <span className="sbiq">{quantities[it.id]}</span>
@@ -820,23 +828,31 @@ export default function App() {
                     const hexColor = DYE_COLOR_MAP && Object.entries(DYE_COLOR_MAP).find(([,v]) => v === it.id)?.[0];
                     return (
                       <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {borderLeftColor:"var(--accd)"}}>
-                        <a
-                          className="sbin"
-                          href={t.wikiUrl(it)}
-                          target="_blank" rel="noreferrer"
-                          title={t.displayName(it)}
-                          style={{textDecoration:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
-                        >
-                          {hexColor && (
-                            <span style={{
-                              width:12, height:12, borderRadius:3, flexShrink:0,
-                              background:`#${hexColor}`, border:"1px solid rgba(255,255,255,0.15)",
-                              display:"inline-block",
-                            }} />
-                          )}
-                          {done && <span style={{color:"#3fb950",marginRight:2}}>✔</span>}
-                          {t.displayName(it)}
-                        </a>
+                        <div style={{flex:1, minWidth:0}}>
+                          <a
+                            className="sbin"
+                            href={t.wikiUrl(it)}
+                            target="_blank" rel="noreferrer"
+                            title={t.displayName(it)}
+                            style={{textDecoration:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
+                          >
+                            {hexColor && (
+                              <span style={{
+                                width:12, height:12, borderRadius:3, flexShrink:0,
+                                background:`#${hexColor}`, border:"1px solid rgba(255,255,255,0.15)",
+                                display:"inline-block",
+                              }} />
+                            )}
+                            {done && <span style={{color:"#3fb950",marginRight:2}}>✔</span>}
+                            {t.displayName(it)}
+                          </a>
+                          <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:3}}>
+                            {it.patch && <span className="tg-patch">{it.patch}</span>}
+                            {it.sources && it.sources.map(s => (
+                              <span key={s} className="tg-src">{s}</span>
+                            ))}
+                          </div>
+                        </div>
                         <div className="sbi-ctrl">
                           <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
                           <span className="sbiq">{quantities[it.id]}</span>
