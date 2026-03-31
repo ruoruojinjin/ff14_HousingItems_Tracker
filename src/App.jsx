@@ -425,11 +425,20 @@ export default function App() {
   const totalPages   = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const pagedItems   = filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const { totalQty, selectedCount, selectedItems } = useMemo(() => {
+  const { totalQty, selectedCount, selectedItems, selectedDyes } = useMemo(() => {
     const si = ITEMS_DATA
       .filter(it => (quantities[it.id] || 0) > 0)
       .sort((a, b) => (addOrderRef.current[a.id] || 0) - (addOrderRef.current[b.id] || 0));
-    return { selectedItems: si, selectedCount: si.length, totalQty: si.reduce((s, it) => s + (quantities[it.id] || 0), 0) };
+    const sd = DYES_DATA
+      .filter(it => (quantities[it.id] || 0) > 0)
+      .sort((a, b) => (addOrderRef.current[a.id] || 0) - (addOrderRef.current[b.id] || 0));
+    const allSelected = [...si, ...sd];
+    return {
+      selectedItems: si,
+      selectedDyes: sd,
+      selectedCount: allSelected.length,
+      totalQty: allSelected.reduce((s, it) => s + (quantities[it.id] || 0), 0),
+    };
   }, [quantities]);
 
   return (
@@ -576,7 +585,7 @@ export default function App() {
                   <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>已買</span>
                 </div>
               )}
-              {selectedItems.length === 0 ? (
+              {selectedItems.length === 0 && selectedDyes.length === 0 ? (
                 <div className="sbe">尚未選取任何傢俱<br />點擊 + 開始規劃</div>
               ) : selectedItems.map(it => {
                 const bqty = bought[it.id] || 0;
@@ -605,7 +614,47 @@ export default function App() {
                   </div>
                 );
               })}
-            </div>
+              {/* 染劑區塊 */}
+              {selectedDyes.length > 0 && (
+                <>
+                  <div className="sblt" style={{marginTop:10}}>🎨 染劑</div>
+                  <div style={{display:"flex",alignItems:"center",padding:"0 8px 4px",gap:4}}>
+                    <span style={{flex:1,fontSize:10,color:"var(--tm)"}}>染劑</span>
+                    <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>需要</span>
+                    <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>已買</span>
+                  </div>
+                  {selectedDyes.map(it => {
+                    const bqty = bought[it.id] || 0;
+                    const done = bqty >= (quantities[it.id] || 0);
+                    const hexColor = DYE_COLOR_MAP && Object.entries(DYE_COLOR_MAP).find(([,v]) => v === it.id)?.[0];
+                    return (
+                      <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {borderLeftColor:"var(--accd)"}}>
+                        <span className="sbin" title={displayName(it)} style={{display:"flex",alignItems:"center",gap:6}}>
+                          {hexColor && (
+                            <span style={{
+                              width:12, height:12, borderRadius:3, flexShrink:0,
+                              background:`#${hexColor}`, border:"1px solid rgba(255,255,255,0.15)",
+                              display:"inline-block",
+                            }} />
+                          )}
+                          {done && <span style={{color:"#3fb950",marginRight:2}}>✔</span>}
+                          {displayName(it)}
+                        </span>
+                        <div className="sbi-ctrl">
+                          <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
+                          <span className="sbiq">{quantities[it.id]}</span>
+                          <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                          <span style={{margin:"0 3px",color:"var(--br)"}}>|</span>
+                          <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={(bought[it.id]||0)===0}>−</button>
+                          <span className="sbiq" style={{color:done?"#3fb950":undefined}}>{bought[it.id]||0}</span>
+                          <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={(bought[it.id]||0)>=(quantities[it.id]||0)}>＋</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>{/* end sbl */}
           </aside>
         </div>
 
@@ -634,7 +683,7 @@ export default function App() {
             </div>
           </div>
           <div className="ft-bottom">
-            <span>版本 <span className="ft-hi">1.2</span></span>
+            <span>版本 <span className="ft-hi">1.3</span></span>
             <span>•</span>
             <span>作者：<span className="ft-hi">若真</span></span>
             <span>•</span>
