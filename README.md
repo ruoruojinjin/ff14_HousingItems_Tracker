@@ -50,6 +50,15 @@ npm run dev
 ## 🚀 未來規劃 Roadma
 ✅ (已完成) 支援 Re: MakePlace / MakePlace JSON 匯入
 
+✅ 物品所屬版本（Patch）顯示
+可快速查看家具是在哪個版本加入遊戲。
+
+✅ 物品取得方式顯示
+顯示製作 / 商店 / 掉落等來源資訊。
+
+✅ 物品詳細資料連結
+點擊物品名稱可直接前往[市場](https://beherw.github.io/FFXIV_Market/)
+
 📤 匯出至 Teamcraft (購物 / 製作清單)
 
 🎨 染色與分類統計
