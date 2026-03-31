@@ -34555,11 +34555,11 @@
   },
   {
     "id": 48164,
-    "name_zh": null,
+    "name_zh": "明亮橙染劑",
     "name_ja": "カララント:ブライトオレンジ",
     "name_en": "Bright Orange Dye",
     "icon": "https://v2.xivapi.comui/icon/022000/022809_hr1.tex",
-    "patch": null,
+    "patch": "7.0",
     "sources": [
       "兌換"
     ],
@@ -34591,11 +34591,11 @@
   },
   {
     "id": 48167,
-    "name_zh": null,
+    "name_zh": "羅蘭紫染劑",
     "name_ja": "カララント:バイオレットパープル",
     "name_en": "Violet Purple Dye",
     "icon": "https://v2.xivapi.comui/icon/022000/022812_hr1.tex",
-    "patch": null,
+    "patch": "7.0",
     "sources": [
       "兌換"
     ],
@@ -35073,5 +35073,17 @@
     "type": "furniture",
     "category": "庭具",
     "subcategory": "其他"
+  },
+  {
+    "id": 13433,
+    "name_zh": "鑽鐵棕染劑",
+    "name_ja": "カララント:コボルドブラウン",
+    "name_en": "Kobold Brown Dye",
+    "icon": "https://v2.xivapi.comui/icon/022000/022809_hr1.tex",
+    "patch": "2.3",
+    "sources": [
+      "兌換"
+    ],
+    "type": "dye"
   }
 ]
