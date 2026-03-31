@@ -1,5 +1,9 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import ITEMS_DATA from "./items.json";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import FURNITURE_DATA from "./furniture.json";
+import DYE_COLOR_MAP from "./dye-color-map.json"; // hex → dye item id
+
+const ITEMS_DATA = FURNITURE_DATA.filter(it => it.type === "furniture");
+const DYES_DATA   = FURNITURE_DATA.filter(it => it.type === "dye");
 import { Search, Sun, Moon, Trash2, Download, Package, ListFilter, Upload } from "lucide-react";
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
@@ -11,7 +15,7 @@ const ls = {
 };
 
 // ─── 分類常數 ──────────────────────────────────────────────────────────────────
-const CATEGORIES = ["全部", "室內", "庭具", "壁掛", "桌上", "地板"];
+const CATEGORIES = ["全部", "室內", "庭具", "壁掛", "桌上", "地板", "染劑"];
 
 // ─── 繁簡互轉 ─────────────────────────────────────────────────────────────────
 // 繁簡互轉對照表
@@ -82,13 +86,26 @@ function parseMakePlaceJSON(text) {
       ...(data.interiorFurniture  || []),
       ...(data.exteriorFurniture  || []),
     ];
+    // 統計傢俱數量
     const counts = {};
+    // 統計染劑數量（從 color 欄位）
+    const dyeCounts = {};
     for (const item of allItems) {
       const id = item.itemId;
       if (!id || id === 0) continue;
       counts[id] = (counts[id] || 0) + 1;
+      // 解析染劑：color 格式為 "658241FF"（hex + alpha），取前6碼
+      if (item.properties?.color) {
+        const hex = item.properties.color.slice(0, 6).toUpperCase();
+        if (hex !== "000000" && hex !== "FFFFFF") { // 排除預設無染色
+          const dyeId = DYE_COLOR_MAP[hex];
+          if (dyeId) {
+            dyeCounts[dyeId] = (dyeCounts[dyeId] || 0) + 1;
+          }
+        }
+      }
     }
-    return { counts, data }; // 回傳 data 供後續查名稱
+    return { counts, dyeCounts, data };
   } catch (e) {
     return null;
   }
@@ -111,7 +128,7 @@ function importMakePlaceFile(setQuantities) {
         alert("無法解析此 JSON 檔案，請確認是 MakePlace / Re:MakePlace 匯出的格式。");
         return;
       }
-      const { counts, data } = parsed;
+      const { counts, dyeCounts, data } = parsed;
       const knownIds = new Set(ITEMS_DATA.map(it => it.id));
       const matched = {};
       let total = 0;
@@ -131,9 +148,18 @@ function importMakePlaceFile(setQuantities) {
         for (const [id, cnt] of Object.entries(matched)) {
           next[Number(id)] = (next[Number(id)] || 0) + cnt;
         }
+        // 加入染劑數量
+        for (const [id, cnt] of Object.entries(dyeCounts)) {
+          next[Number(id)] = (next[Number(id)] || 0) + cnt;
+        }
         return next;
       });
+      const dyeTotal = Object.values(dyeCounts).reduce((s, n) => s + n, 0);
+      const dyeKinds = Object.keys(dyeCounts).length;
       let msg = `✅ 匯入完成！\n共 ${total} 件傢俱已加入清單。`;
+      if (dyeKinds > 0) {
+        msg += `\n🎨 共需 ${dyeTotal} 罐染劑（${dyeKinds} 種）已加入清單。`;
+      }
       if (unknownItems.length > 0) {
         msg += `\n\n⚠️ ${unknownItems.length} 件不在資料庫中（已略過）：`;
         for (const u of unknownItems) {
@@ -247,22 +273,24 @@ const STYLES = `
     display:flex; align-items:center; justify-content:space-between; gap:12px;
     padding:9px 13px; border-radius:7px; background:var(--bgc); border:1px solid var(--br); transition:all .14s;
   }
-  .ic:hover { background:var(--bgch); border-color:var(--bra); box-shadow:0 0 10px var(--accg); }
+  .ic { transition:all .15s ease, transform .1s ease; }
+  .ic:hover { background:var(--bgch); border-color:var(--bra); box-shadow:0 0 10px var(--accg); transform:translateX(2px); }
   .ic.sel   { background:var(--bgh); border-color:var(--accd); box-shadow:0 0 9px var(--accg); }
   .ic.sel:hover { box-shadow:0 0 15px var(--accgh); }
   .ic.done  { background:rgba(63,185,80,0.08); border-color:rgba(63,185,80,0.4); box-shadow:0 0 10px rgba(63,185,80,0.12); }
   .ic.done:hover { box-shadow:0 0 16px rgba(63,185,80,0.2); }
-  .qc-wrap  { display:flex; align-items:center; gap:10px; }
-  .qc-group { display:flex; flex-direction:column; align-items:center; gap:3px; }
-  .qc-label { font-size:9px; color:var(--tm); letter-spacing:.04em; text-transform:uppercase; }
+  .qc-group { display:flex; align-items:center; gap:6px; }
+  .qc-label { font-size:10px; color:var(--tm); white-space:nowrap; }
   .done-check { font-size:16px; color:#3fb950; margin-left:2px; }
   .ii  { flex:1; min-width:0; display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
-  .in  { font-size:13px; font-weight:500; color:var(--tp); }
+  .in  { font-size:13px; font-weight:500; color:var(--tp); transition:color .14s; }
+  .in:hover  { color:var(--acc); }
+  .ic.sel .in:hover { color:var(--gold2, #e7c96a); }
   .ic.sel .in { color:var(--acc); }
   .tgs { display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
-  .tg  { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid var(--br); color:var(--tm); background:var(--bg2); white-space:nowrap; }
-  .tg-patch  { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid rgba(201,168,76,.3); color:var(--accd); background:var(--accg); white-space:nowrap; }
-  .tg-src    { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid var(--border2,#2a3540); color:#7a8fa0; background:rgba(255,255,255,.03); white-space:nowrap; }
+  .tg       { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid var(--br); color:var(--tm); background:var(--bg2); white-space:nowrap; }
+  .tg-patch { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid rgba(201,168,76,.3); color:var(--accd); background:var(--accg); white-space:nowrap; }
+  .tg-src   { font-size:10px; padding:2px 6px; border-radius:4px; border:1px solid rgba(100,150,200,.25); color:#7a9ab8; background:rgba(100,150,200,.06); white-space:nowrap; }
   .qc  { display:flex; align-items:center; gap:5px; }
   .qb  {
     width:25px; height:25px; border-radius:5px; border:1px solid var(--br);
@@ -296,7 +324,8 @@ const STYLES = `
   .sbl { flex:1; padding:10px 15px 16px; display:flex; flex-direction:column; gap:4px; }
   .sblt { font-size:12px; color:var(--tm); letter-spacing:.06em; text-transform:uppercase; margin-bottom:7px; }
   .sbi { display:flex; align-items:center; padding:6px 10px; border-radius:5px; border-left:2px solid var(--accd); background:var(--bgc); gap:6px; }
-  .sbin { font-size:15px; color:var(--tp); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sbin { font-size:15px; color:var(--tp); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:color .14s; }
+  .sbin:hover { color:var(--acc); }
   .sbi-ctrl { display:flex; align-items:center; gap:5px; margin-left:auto; flex-shrink:0; }
   .sbi-btn {
     width:26px; height:26px; border-radius:5px; border:1px solid var(--br);
@@ -342,6 +371,9 @@ export default function App() {
   const [isDark,     setIsDark]     = useState(() => ls.get("ff14_theme", "dark") === "dark");
   const [quantities, setQuantities] = useState(() => ls.getJSON("ff14_qty", {}));
   const [bought,     setBought]     = useState(() => ls.getJSON("ff14_bought", {}));
+  // 記錄各 item 第一次被加入的順序（用 ref + counter，不觸發 re-render）
+  const addOrderRef = useRef({});
+  const addCounterRef = useRef(0);
   const [activeCat,  setActiveCat]  = useState("全部");
   const [search,     setSearch]     = useState("");
 
@@ -350,9 +382,11 @@ export default function App() {
   useEffect(() => { ls.setJSON("ff14_bought", bought); }, [bought]);
 
   const adjustQty = useCallback((id, delta) => {
+    if (!addOrderRef.current[id]) addOrderRef.current[id] = ++addCounterRef.current;
     setQuantities(prev => {
       const next = Math.max(0, (prev[id] || 0) + delta);
       if (next === 0) {
+        delete addOrderRef.current[id];
         // 需要歸零時，已買也歸零
         setBought(b => { const { [id]: _, ...rest } = b; return rest; });
         const { [id]: _, ...rest } = prev; return rest;
@@ -370,17 +404,18 @@ export default function App() {
     });
   }, [quantities]);
 
-  const filteredItems = useMemo(() =>
-    ITEMS_DATA.filter(it => {
-      if (activeCat !== "全部" && it.category !== activeCat) return false;
+  const filteredItems = useMemo(() => {
+    const pool = activeCat === "染劑" ? DYES_DATA : ITEMS_DATA;
+    return pool.filter(it => {
+      if (activeCat !== "全部" && activeCat !== "染劑" && it.category !== activeCat) return false;
       if (search.trim()) {
         const q = toSimplified(search.trim().toLowerCase());
-        // 把物品名稱也轉成簡體再比對，繁簡都能搜到
         const m = s => s && toSimplified(s.toLowerCase()).includes(q);
         return m(it.name_zh) || m(it.name_en) || m(it.name_ja) || m(it.category) || m(it.subcategory);
       }
       return true;
-    }), [activeCat, search]);
+    });
+  }, [activeCat, search]);
 
   // 分頁
   const PAGE_SIZE = 20;
@@ -393,7 +428,7 @@ export default function App() {
   const { totalQty, selectedCount, selectedItems } = useMemo(() => {
     const si = ITEMS_DATA
       .filter(it => (quantities[it.id] || 0) > 0)
-      .sort((a, b) => (quantities[b.id] || 0) - (quantities[a.id] || 0));
+      .sort((a, b) => (addOrderRef.current[a.id] || 0) - (addOrderRef.current[b.id] || 0));
     return { selectedItems: si, selectedCount: si.length, totalQty: si.reduce((s, it) => s + (quantities[it.id] || 0), 0) };
   }, [quantities]);
 
@@ -431,7 +466,12 @@ export default function App() {
             <button className="btn" onClick={() => importMakePlaceFile(setQuantities)}>
               <Upload size={12} />匯入 MakePlace
             </button>
-            <button className="btn btn-del" onClick={() => setQuantities({})}>
+            <button className="btn btn-del" onClick={() => {
+                setQuantities({});
+                setBought({});
+                addOrderRef.current = {};
+                addCounterRef.current = 0;
+              }}>
               <Trash2 size={12} />清空數量
             </button>
             <button className="btn btn-acc" onClick={() => exportCSV(quantities, bought)}>
@@ -476,37 +516,29 @@ export default function App() {
                   const bqty = bought[it.id] || 0;
                   const done = qty > 0 && bqty >= qty;
                   return (
-                    <div key={it.id} className={`ic${qty > 0 ? (done ? " done" : " sel") : ""}`}>
+                    <div key={it.id} className={`ic${qty > 0 ? " sel" : ""}`}>
                           <div className="ii">
-                            <span className="in">{displayName(it)}</span>
+                            <a
+                              className="in"
+                              href={`https://beherw.github.io/FFXIV_Market/item/${it.id}/${encodeURIComponent(it.name_zh || it.name_en || '')}`}
+                              target="_blank" rel="noreferrer"
+                              style={{textDecoration:"none",cursor:"pointer"}}
+                            >{displayName(it)}</a>
                             <div className="tgs">
-                              <span className="tg">{it.category}</span>
-                              <span className="tg">{it.subcategory}</span>
                               {it.patch && <span className="tg-patch">{it.patch}</span>}
+                              {it.category && <span className="tg">{it.category}</span>}
+                              {it.subcategory && <span className="tg">{it.subcategory}</span>}
                               {it.sources && it.sources.map(s => (
                                 <span key={s} className="tg-src">{s}</span>
                               ))}
                             </div>
                           </div>
-                          <div className="qc-wrap">
-                            <div className="qc-group">
-                              <span className="qc-label">需要</span>
-                              <div className="qc">
-                                <button className="qb" onClick={() => adjustQty(it.id, -1)} disabled={qty === 0}>−</button>
-                                <span className="qd">{qty}</span>
-                                <button className="qb" onClick={() => adjustQty(it.id, 1)}>＋</button>
-                              </div>
-                            </div>
-                            <div className="qc-group">
-                              <span className="qc-label">已買</span>
-                              <div className="qc">
-                                <button className="qb" onClick={() => adjustBought(it.id, -1)} disabled={bqty === 0}>−</button>
-                                <span className="qd" style={{color: done ? "#3fb950" : undefined}}>{bqty}</span>
-                                <button className="qb" onClick={() => adjustBought(it.id, 1)} disabled={bqty >= qty}>＋</button>
-                              </div>
-                            </div>
-                            {done && <span className="done-check">✔</span>}
+                          <div className="qc">
+                            <button className="qb" onClick={() => adjustQty(it.id, -1)} disabled={qty === 0}>−</button>
+                            <span className="qd">{qty}</span>
+                            <button className="qb" onClick={() => adjustQty(it.id, 1)}>＋</button>
                           </div>
+
                     </div>
                   );
                 })}
@@ -537,6 +569,13 @@ export default function App() {
             </div>
             <div className="sbl">
               <div className="sblt">明細</div>
+              {selectedItems.length > 0 && (
+                <div style={{display:"flex",alignItems:"center",padding:"0 8px 4px",gap:4}}>
+                  <span style={{flex:1,fontSize:10,color:"var(--tm)"}}>傢俱</span>
+                  <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>需要</span>
+                  <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>已買</span>
+                </div>
+              )}
               {selectedItems.length === 0 ? (
                 <div className="sbe">尚未選取任何傢俱<br />點擊 + 開始規劃</div>
               ) : selectedItems.map(it => {
@@ -544,14 +583,24 @@ export default function App() {
                 const done = bqty >= (quantities[it.id] || 0);
                 return (
                   <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {}}>
-                    <span className="sbin" title={displayName(it)}>
+                    <a
+                      className="sbin"
+                      href={`https://beherw.github.io/FFXIV_Market/item/${it.id}/${encodeURIComponent(it.name_zh || it.name_en || '')}`}
+                      target="_blank" rel="noreferrer"
+                      title={displayName(it)}
+                      style={{textDecoration:"none",cursor:"pointer"}}
+                    >
                       {done && <span style={{color:"#3fb950",marginRight:4}}>✔</span>}
                       {displayName(it)}
-                    </span>
-                    <div className="sbi-ctrl">
+                    </a>
+                       <div className="sbi-ctrl">
                       <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
                       <span className="sbiq">{quantities[it.id]}</span>
                       <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                      <span style={{margin:"0 3px",color:"var(--br)"}}>|</span>
+                      <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={(bought[it.id]||0)===0}>−</button>
+                      <span className="sbiq" style={{color:(bought[it.id]||0)>=(quantities[it.id]||0)&&(quantities[it.id]||0)>0?"#3fb950":undefined}}>{bought[it.id]||0}</span>
+                      <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={(bought[it.id]||0)>=(quantities[it.id]||0)}>＋</button>
                     </div>
                   </div>
                 );
@@ -585,7 +634,7 @@ export default function App() {
             </div>
           </div>
           <div className="ft-bottom">
-            <span>版本 <span className="ft-hi">1.0</span></span>
+            <span>版本 <span className="ft-hi">1.2</span></span>
             <span>•</span>
             <span>作者：<span className="ft-hi">若真</span></span>
             <span>•</span>
