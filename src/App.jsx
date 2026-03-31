@@ -14,8 +14,169 @@ const ls = {
   setJSON: (k, v)         => { try { window.localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
-// ─── 分類常數 ──────────────────────────────────────────────────────────────────
-const CATEGORIES = ["全部", "室內", "庭具", "壁掛", "桌上", "地板", "染劑"];
+// ─── 多語言 i18n ───────────────────────────────────────────────────────────────
+const LANGS = ["繁中", "EN", "日本語"];
+
+const I18N = {
+  "繁中": {
+    categories:   ["全部", "室內", "庭具", "壁掛", "桌上", "地板", "染劑"],
+    searchPlaceholder: "搜尋傢俱名稱、分類…",
+    filterLabel:  "分類",
+    importBtn:    "匯入 MakePlace",
+    clearBtn:     "清空數量",
+    exportBtn:    "匯出 CSV",
+    shareX:       "𝕏 分享",
+    shareDiscord: "分享到 Discord",
+    copyLink:     "🔗 複製連結",
+    reportBug:    "🐛 回報錯誤",
+    donate:       "☕ 請我喝咖啡",
+    titleMain:    "✦ FF14 傢俱規劃工具",
+    titleSub:     "FINAL FANTASY XIV — Housing Planner",
+    sidebarTitle: "選取清單",
+    totalQtyLabel:"選取總數",
+    selectedLabel:"已選項目",
+    kindsSuffix:  " 種傢俱",
+    detailTitle:  "明細",
+    colFurniture: "傢俱",
+    colDye:       "染劑",
+    colNeed:      "需要",
+    colBought:    "已買",
+    emptyHint:    ["尚未選取任何傢俱", "點擊 + 開始規劃"],
+    dyeSection:   "🎨 染劑",
+    showing:      (n) => `顯示 ${n} 件傢俱`,
+    prevPage:     "← 上一頁",
+    nextPage:     "下一頁 →",
+    pageInfo:     (cur, tot, n) => `第 ${cur} / ${tot} 頁（共 ${n} 件）`,
+    emptyResult:  "找不到符合條件的傢俱",
+    alertCopied:  "已複製到剪貼簿，貼到 Discord 分享吧！",
+    alertLink:    "連結已複製！",
+    alertNoSel:   "尚未選取任何傢俱",
+    alertImportOk:(total) => `✅ 匯入完成！\n共 ${total} 件傢俱已加入清單。`,
+    alertDye:     (tot, k) => `\n🎨 共需 ${tot} 罐染劑（${k} 種）已加入清單。`,
+    alertUnknown: (n) => `\n\n⚠️ ${n} 件不在資料庫中（已略過）：`,
+    alertBadFile: "無法解析此 JSON 檔案，請確認是 MakePlace / Re:MakePlace 匯出的格式。",
+    csvHeader:    "\uFEFF名稱,分類,需要,已買,總數",
+    csvTotal:     (n) => `,,,共計,${n}`,
+    srcLabel:     "資料來源",
+    srcText1:     "XIVAPI v2",
+    srcDesc1:     " — 傢俱英日名稱與圖示",
+    srcText2:     "貝爾的市場小屋（FFXIV_Market）",
+    srcDesc2:     " — 繁中名稱對照",
+    thanksLabel:  "致謝",
+    thanksText:   "感謝 beherw（貝肝煎熬．迦樓羅）維護繁中 FF14 資料庫\n感謝所有提供回饋的玩家們 ♡",
+    contactLabel: "聯絡 / 回報",
+    contactText:  "Discord 伺服器",
+    footerAuthor: (v) => `版本 ${v} • 作者：若真 • 非官方工具，與 SQUARE ENIX 無關`,
+    wikiUrl:      (it) => `https://beherw.github.io/FFXIV_Market/item/${it.id}/${encodeURIComponent(it.name_zh || it.name_en || "")}`,
+    displayName:  (it) => it.name_zh || it.name_en || it.name_ja || "(unnamed)",
+  },
+  "EN": {
+    categories:   ["All", "Interior", "Exterior", "Wall", "Tabletop", "Floor", "Dye"],
+    searchPlaceholder: "Search furniture name, category…",
+    filterLabel:  "Category",
+    importBtn:    "Import MakePlace",
+    clearBtn:     "Clear All",
+    exportBtn:    "Export CSV",
+    shareX:       "𝕏 Share",
+    shareDiscord: "Share to Discord",
+    copyLink:     "🔗 Copy Link",
+    reportBug:    "🐛 Report Bug",
+    donate:       "☕ Buy Me a Coffee",
+    titleMain:    "✦ FF14 Housing Planner",
+    titleSub:     "FINAL FANTASY XIV — Housing Planner",
+    sidebarTitle: "Selected List",
+    totalQtyLabel:"Total Qty",
+    selectedLabel:"Selected",
+    kindsSuffix:  " items",
+    detailTitle:  "Details",
+    colFurniture: "Furniture",
+    colDye:       "Dye",
+    colNeed:      "Need",
+    colBought:    "Bought",
+    emptyHint:    ["No furniture selected", "Click + to start planning"],
+    dyeSection:   "🎨 Dyes",
+    showing:      (n) => `Showing ${n} items`,
+    prevPage:     "← Prev",
+    nextPage:     "Next →",
+    pageInfo:     (cur, tot, n) => `Page ${cur} / ${tot} (${n} items)`,
+    emptyResult:  "No matching furniture found",
+    alertCopied:  "Copied! Paste it in Discord to share.",
+    alertLink:    "Link copied!",
+    alertNoSel:   "No furniture selected",
+    alertImportOk:(total) => `✅ Import complete!\n${total} items added to list.`,
+    alertDye:     (tot, k) => `\n🎨 ${tot} dye(s) (${k} type(s)) added to list.`,
+    alertUnknown: (n) => `\n\n⚠️ ${n} item(s) not in database (skipped):`,
+    alertBadFile: "Failed to parse JSON. Please make sure it's exported from MakePlace / Re:MakePlace.",
+    csvHeader:    "\uFEFFName,Category,Need,Bought,Total",
+    csvTotal:     (n) => `,,,Total,${n}`,
+    srcLabel:     "Data Sources",
+    srcText1:     "XIVAPI v2",
+    srcDesc1:     " — EN/JP names & icons",
+    srcText2:     "FFXIV_Market by beherw",
+    srcDesc2:     " — Traditional Chinese names",
+    thanksLabel:  "Credits",
+    thanksText:   "Thanks to beherw for maintaining the TC FF14 database\nThanks to all players who provided feedback ♡",
+    contactLabel: "Contact / Report",
+    contactText:  "Discord Server",
+    footerAuthor: (v) => `v${v} • Author: 若真 • Unofficial tool, not affiliated with SQUARE ENIX`,
+    wikiUrl:      (it) => `https://ffxiv.gamerescape.com/wiki/${encodeURIComponent((it.name_en || "").replace(/ /g, "_"))}`,
+    displayName:  (it) => it.name_en || it.name_zh || it.name_ja || "(unnamed)",
+  },
+  "日本語": {
+    categories:   ["すべて", "室内", "庭具", "壁掛け", "テーブル", "床置き", "染料"],
+    searchPlaceholder: "家具名・カテゴリを検索…",
+    filterLabel:  "カテゴリ",
+    importBtn:    "MakePlace 読込",
+    clearBtn:     "数量クリア",
+    exportBtn:    "CSV 出力",
+    shareX:       "𝕏 シェア",
+    shareDiscord: "Discord でシェア",
+    copyLink:     "🔗 リンクをコピー",
+    reportBug:    "🐛 バグ報告",
+    donate:       "☕ コーヒーを奢る",
+    titleMain:    "✦ FF14 ハウジング プランナー",
+    titleSub:     "FINAL FANTASY XIV — Housing Planner",
+    sidebarTitle: "選択リスト",
+    totalQtyLabel:"合計数量",
+    selectedLabel:"選択中",
+    kindsSuffix:  " 種類",
+    detailTitle:  "詳細",
+    colFurniture: "家具",
+    colDye:       "染料",
+    colNeed:      "必要",
+    colBought:    "購入済",
+    emptyHint:    ["まだ家具が選択されていません", "+ をクリックして開始"],
+    dyeSection:   "🎨 染料",
+    showing:      (n) => `${n} 件表示`,
+    prevPage:     "← 前へ",
+    nextPage:     "次へ →",
+    pageInfo:     (cur, tot, n) => `${cur} / ${tot} ページ（全 ${n} 件）`,
+    emptyResult:  "該当する家具が見つかりません",
+    alertCopied:  "クリップボードにコピーしました。Discord でシェアしてください！",
+    alertLink:    "リンクをコピーしました！",
+    alertNoSel:   "家具が選択されていません",
+    alertImportOk:(total) => `✅ 読込完了！\n${total} 件の家具をリストに追加しました。`,
+    alertDye:     (tot, k) => `\n🎨 染料 ${tot} 個（${k} 種類）をリストに追加しました。`,
+    alertUnknown: (n) => `\n\n⚠️ ${n} 件がデータベースにありません（スキップ済）：`,
+    alertBadFile: "JSONの解析に失敗しました。MakePlace / Re:MakePlace からエクスポートしたファイルか確認してください。",
+    csvHeader:    "\uFEFF名前,カテゴリ,必要,購入済,合計",
+    csvTotal:     (n) => `,,,合計,${n}`,
+    srcLabel:     "データソース",
+    srcText1:     "XIVAPI v2",
+    srcDesc1:     " — 英語・日本語名称とアイコン",
+    srcText2:     "FFXIV_Market（beherw）",
+    srcDesc2:     " — 繁体中国語名称",
+    thanksLabel:  "クレジット",
+    thanksText:   "beherw（繁中 FF14 データベース管理者）に感謝\nフィードバックをくれたすべてのプレイヤーに感謝 ♡",
+    contactLabel: "連絡 / 報告",
+    contactText:  "Discord サーバー",
+    footerAuthor: (v) => `バージョン ${v} • 作者：若真 • 非公式ツール、SQUARE ENIX とは無関係`,
+    wikiUrl:      (it) => `https://jp.finalfantasyxiv.com/lodestone/playguide/db/item/?patch=&db_search_category=item&q=${encodeURIComponent(it.name_ja || it.name_en || "")}`,
+    displayName:  (it) => it.name_ja || it.name_en || it.name_zh || "(unnamed)",
+  },
+};
+
+
 
 // ─── 繁簡互轉 ─────────────────────────────────────────────────────────────────
 // 繁簡互轉對照表
@@ -29,11 +190,11 @@ const T2S = {
   "豬":"猪","鴨":"鸭","鶴":"鹤","藍":"蓝","綠":"绿","紅":"红","黃":"黄","貓":"猫",
   "惡":"恶","靈":"灵","麗":"丽","風":"风","東":"东","來":"来","開":"开","關":"关",
   "歡":"欢","節":"节","濱":"滨","橢":"椭","圓":"圆","鐮":"镰","劍":"剑","盾":"盾",
-  "鷹":"鹰","獅":"狮","獸":"兽","點":"点","燃":"燃","爐":"炉","鍋":"锅","碗":"碗",
+  "鷹":"鹰","獅":"狮","獸":"兽","點":"点","燃":"燃","爐":"炉","碗":"碗",
   "箱":"箱","籃":"篮","籠":"笼","氣":"气","電":"电","話":"话","視":"视","窗":"窗",
   "當":"当","時":"时","際":"际","實":"实","術":"术","產":"产","業":"业","義":"义",
   "輕":"轻","歷":"历","聖":"圣","靜":"静","響":"响","號":"号","類":"类","隱":"隐",
-  "際":"际","總":"总","質":"质","線":"线","陽":"阳","陰":"阴","讓":"让","過":"过",
+  "總":"总","質":"质","線":"线","陽":"阳","陰":"阴","讓":"让","過":"过",
   "還":"还","說":"说","個":"个","對":"对","這":"这","們":"们","會":"会","與":"与",
   "從":"从","為":"为","後":"后","邊":"边","裡":"里","兒":"儿","幾":"几","無":"无",
   "鬥":"斗","韓":"韩","漢":"汉","語":"语","讀":"读","買":"买","賣":"卖","導":"导",
@@ -54,19 +215,19 @@ function displayName(it) { return it.name_zh || it.name_en || it.name_ja || "(un
 // ─── 分享 ─────────────────────────────────────────────────────────────────────
 const SITE_URL   = "https://ruoruojinjin.github.io/ff14_HousingItems_Tracker/";
 const SITE_TITLE = "FF14 傢俱規劃工具";
-function shareToX()       { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(SITE_TITLE + " — FF14 房屋裝潢好幫手！\n" + SITE_URL)}`, "_blank"); }
-function shareToDiscord() { try { navigator.clipboard.writeText(SITE_TITLE + "\n" + SITE_URL); alert("已複製到剪貼簿，貼到 Discord 分享吧！"); } catch { alert(SITE_URL); } }
-function copyLink()       { try { navigator.clipboard.writeText(SITE_URL); alert("連結已複製！"); } catch { alert(SITE_URL); } }
+function shareToX()             { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(SITE_TITLE + " — FF14 房屋裝潢好幫手！\n" + SITE_URL)}`, "_blank"); }
+function shareToDiscord(t)      { try { navigator.clipboard.writeText(SITE_TITLE + "\n" + SITE_URL); alert(t.alertCopied); } catch { alert(SITE_URL); } }
+function copyLink(t)            { try { navigator.clipboard.writeText(SITE_URL); alert(t.alertLink); } catch { alert(SITE_URL); } }
 
 // ─── CSV 匯出 ─────────────────────────────────────────────────────────────────
-function exportCSV(quantities, bought) {
+function exportCSV(quantities, bought, t) {
   const sel = ITEMS_DATA.filter(it => (quantities[it.id] || 0) > 0);
-  if (!sel.length) { alert("尚未選取任何傢俱"); return; }
+  if (!sel.length) { alert(t.alertNoSel); return; }
   const total = sel.reduce((s, it) => s + quantities[it.id], 0);
   const rows  = [
-    "\uFEFF名稱,分類,需要,已買,總數",
-    ...sel.map(it => `${displayName(it)},${it.category},${quantities[it.id]},${bought[it.id]||0},`),
-    `,,,共計,${total}`,
+    t.csvHeader,
+    ...sel.map(it => `${t.displayName(it)},${it.category},${quantities[it.id]},${bought[it.id]||0},`),
+    t.csvTotal(total),
   ].join("\n");
   const a = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(new Blob([rows], { type: "text/csv;charset=utf-8;" })),
@@ -111,7 +272,7 @@ function parseMakePlaceJSON(text) {
   }
 }
 
-function importMakePlaceFile(setQuantities) {
+function importMakePlaceFile(setQuantities, t) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -125,7 +286,7 @@ function importMakePlaceFile(setQuantities) {
       // 如果解析失敗，嘗試 UTF-8
       const parsed = parseMakePlaceJSON(text);
       if (!parsed) {
-        alert("無法解析此 JSON 檔案，請確認是 MakePlace / Re:MakePlace 匯出的格式。");
+        alert(t.alertBadFile);
         return;
       }
       const { counts, dyeCounts, data } = parsed;
@@ -156,12 +317,12 @@ function importMakePlaceFile(setQuantities) {
       });
       const dyeTotal = Object.values(dyeCounts).reduce((s, n) => s + n, 0);
       const dyeKinds = Object.keys(dyeCounts).length;
-      let msg = `✅ 匯入完成！\n共 ${total} 件傢俱已加入清單。`;
+      let msg = t.alertImportOk(total);
       if (dyeKinds > 0) {
-        msg += `\n🎨 共需 ${dyeTotal} 罐染劑（${dyeKinds} 種）已加入清單。`;
+        msg += t.alertDye(dyeTotal, dyeKinds);
       }
       if (unknownItems.length > 0) {
-        msg += `\n\n⚠️ ${unknownItems.length} 件不在資料庫中（已略過）：`;
+        msg += t.alertUnknown(unknownItems.length);
         for (const u of unknownItems) {
           msg += `\n  • ${u.name}（ID: ${u.id}）× ${u.count}`;
         }
@@ -363,21 +524,42 @@ const STYLES = `
   .pg-btn:disabled { opacity:.35; cursor:default; }
   .pg-info { font-size:12px; color:var(--tm); }
 
+  /* ── LANG SELECT ── */
+  .lang-sel {
+    padding:5px 10px; border-radius:6px; border:1px solid var(--bra);
+    background:var(--accg); color:var(--acc);
+    font-size:12px; font-family:inherit; font-weight:600;
+    cursor:pointer; outline:none; transition:all .14s;
+    appearance:auto; -webkit-appearance:auto;
+  }
+  .lang-sel:hover { background:var(--accgh); }
+  .lang-sel option {
+    background:var(--bg2);
+    color:var(--tp);
+    font-weight:500;
+  }
+
   @media(max-width:768px){ .sb{display:none} .hd-title{font-size:14px} .p-banner{padding:10px 16px} }
 `;
 
 // ─── APP ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [isDark,     setIsDark]     = useState(() => ls.get("ff14_theme", "dark") === "dark");
+  const [lang, setLang] = useState(() => {
+    const saved = ls.get("ff14_lang", "繁中");
+    return LANGS.includes(saved) ? saved : "繁中";
+  });
+  const t = I18N[lang] || I18N["繁中"];
   const [quantities, setQuantities] = useState(() => ls.getJSON("ff14_qty", {}));
   const [bought,     setBought]     = useState(() => ls.getJSON("ff14_bought", {}));
   // 記錄各 item 第一次被加入的順序（用 ref + counter，不觸發 re-render）
   const addOrderRef = useRef({});
   const addCounterRef = useRef(0);
-  const [activeCat,  setActiveCat]  = useState("全部");
+  const [activeCat,  setActiveCat]  = useState(() => I18N[ls.get("ff14_lang","繁中")].categories[0]);
   const [search,     setSearch]     = useState("");
 
   useEffect(() => { ls.set("ff14_theme", isDark ? "dark" : "light"); }, [isDark]);
+  useEffect(() => { ls.set("ff14_lang", lang); setActiveCat(t.categories[0]); }, [lang]);
   useEffect(() => { ls.setJSON("ff14_qty", quantities); }, [quantities]);
   useEffect(() => { ls.setJSON("ff14_bought", bought); }, [bought]);
 
@@ -405,9 +587,14 @@ export default function App() {
   }, [quantities]);
 
   const filteredItems = useMemo(() => {
-    const pool = activeCat === "染劑" ? DYES_DATA : ITEMS_DATA;
+    const isDyeCat = t.categories[6] === activeCat; // "染劑"/"染剂"/"Dye"/"染料"
+    const isAllCat = t.categories[0] === activeCat;
+    const pool = isDyeCat ? DYES_DATA : ITEMS_DATA;
+    // map activeCat back to zh category for filtering
+    const catIndex = t.categories.indexOf(activeCat);
+    const zhCat = ["全部","室內","庭具","壁掛","桌上","地板","染劑"][catIndex] ?? activeCat;
     return pool.filter(it => {
-      if (activeCat !== "全部" && activeCat !== "染劑" && it.category !== activeCat) return false;
+      if (!isAllCat && !isDyeCat && it.category !== zhCat) return false;
       if (search.trim()) {
         const q = toSimplified(search.trim().toLowerCase());
         const m = s => s && toSimplified(s.toLowerCase()).includes(q);
@@ -415,7 +602,7 @@ export default function App() {
       }
       return true;
     });
-  }, [activeCat, search]);
+  }, [activeCat, search, t]);
 
   // 分頁
   const PAGE_SIZE = 20;
@@ -425,11 +612,20 @@ export default function App() {
   const totalPages   = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const pagedItems   = filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const { totalQty, selectedCount, selectedItems } = useMemo(() => {
+  const { totalQty, selectedCount, selectedItems, selectedDyes } = useMemo(() => {
     const si = ITEMS_DATA
       .filter(it => (quantities[it.id] || 0) > 0)
       .sort((a, b) => (addOrderRef.current[a.id] || 0) - (addOrderRef.current[b.id] || 0));
-    return { selectedItems: si, selectedCount: si.length, totalQty: si.reduce((s, it) => s + (quantities[it.id] || 0), 0) };
+    const sd = DYES_DATA
+      .filter(it => (quantities[it.id] || 0) > 0)
+      .sort((a, b) => (addOrderRef.current[a.id] || 0) - (addOrderRef.current[b.id] || 0));
+    const allSelected = [...si, ...sd];
+    return {
+      selectedItems: si,
+      selectedDyes: sd,
+      selectedCount: allSelected.length,
+      totalQty: allSelected.reduce((s, it) => s + (quantities[it.id] || 0), 0),
+    };
   }, [quantities]);
 
   return (
@@ -448,23 +644,23 @@ export default function App() {
           </div>
           <div className="p-right">
             <a href="https://discord.com/invite/qnbpYnYV65" target="_blank" rel="noreferrer" className="btn btn-dc">💬 Discord</a>
-            <a href="donate.html" target="_blank" rel="noreferrer" className="btn btn-acc">☕ 請我喝咖啡</a>
-            <button className="btn" onClick={shareToX}>𝕏 分享</button>
-            <button className="btn" onClick={shareToDiscord}>分享到 Discord</button>
-            <button className="btn" onClick={copyLink}>🔗 複製連結</button>
-            <a href="https://discord.com/invite/qnbpYnYV65" target="_blank" rel="noreferrer" className="btn">🐛 回報錯誤</a>
+            <a href="https://ruoruojinjin.github.io/donate.html" target="_blank" rel="noreferrer" className="btn btn-acc">{t.donate}</a>
+            <button className="btn" onClick={shareToX}>{t.shareX}</button>
+            <button className="btn" onClick={() => shareToDiscord(t)}>{t.shareDiscord}</button>
+            <button className="btn" onClick={() => copyLink(t)}>{t.copyLink}</button>
+            <a href="https://discord.com/invite/qnbpYnYV65" target="_blank" rel="noreferrer" className="btn">{t.reportBug}</a>
           </div>
         </div>
 
         {/* ── 工具標題列 ── */}
         <header className="hd">
           <div className="hd-l">
-            <span className="hd-title">✦ FF14 傢俱規劃工具</span>
-            <span className="hd-sub">FINAL FANTASY XIV — Housing Planner</span>
+            <span className="hd-title">{t.titleMain}</span>
+            <span className="hd-sub">{t.titleSub}</span>
           </div>
           <div className="hd-r">
-            <button className="btn" onClick={() => importMakePlaceFile(setQuantities)}>
-              <Upload size={12} />匯入 MakePlace
+            <button className="btn" onClick={() => importMakePlaceFile(setQuantities, t)}>
+              <Upload size={12} />{t.importBtn}
             </button>
             <button className="btn btn-del" onClick={() => {
                 setQuantities({});
@@ -472,11 +668,15 @@ export default function App() {
                 addOrderRef.current = {};
                 addCounterRef.current = 0;
               }}>
-              <Trash2 size={12} />清空數量
+              <Trash2 size={12} />{t.clearBtn}
             </button>
-            <button className="btn btn-acc" onClick={() => exportCSV(quantities, bought)}>
-              <Download size={12} />匯出 CSV
+            <button className="btn btn-acc" onClick={() => exportCSV(quantities, bought, t)}>
+              <Download size={12} />{t.exportBtn}
             </button>
+            {/* 語言切換下拉 */}
+            <select className="lang-sel" value={lang} onChange={e => setLang(e.target.value)}>
+              {LANGS.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
             <button className="btn btn-ic" onClick={() => setIsDark(d => !d)}>
               {isDark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
@@ -491,12 +691,12 @@ export default function App() {
             <div className="fa">
               <div className="sr">
                 <Search className="si" size={14} />
-                <input className="sinp" placeholder="搜尋傢俱名稱、分類…"
+                <input className="sinp" placeholder={t.searchPlaceholder}
                   value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <div className="fr">
-                <span className="fl"><ListFilter size={11} />分類</span>
-                {CATEGORIES.map(cat => (
+                <span className="fl"><ListFilter size={11} />{t.filterLabel}</span>
+                {t.categories.map(cat => (
                   <button key={cat} className={`fb${activeCat === cat ? " on" : ""}`}
                     onClick={() => setActiveCat(cat)}>{cat}</button>
                 ))}
@@ -504,12 +704,12 @@ export default function App() {
             </div>
 
             <div className="ilw">
-              <div className="icb">顯示 {filteredItems.length} 件傢俱</div>
+              <div className="icb">{t.showing(filteredItems.length)}</div>
               <div className="ig">
                 {filteredItems.length === 0 ? (
                   <div className="es">
                     <Package size={30} style={{ display:"block", margin:"0 auto 10px", opacity:.3 }} />
-                    找不到符合條件的傢俱
+                    {t.emptyResult}
                   </div>
                 ) : pagedItems.map(it => {
                   const qty = quantities[it.id] || 0;
@@ -520,10 +720,10 @@ export default function App() {
                           <div className="ii">
                             <a
                               className="in"
-                              href={`https://beherw.github.io/FFXIV_Market/item/${it.id}/${encodeURIComponent(it.name_zh || it.name_en || '')}`}
+                              href={t.wikiUrl(it)}
                               target="_blank" rel="noreferrer"
                               style={{textDecoration:"none",cursor:"pointer"}}
-                            >{displayName(it)}</a>
+                            >{t.displayName(it)}</a>
                             <div className="tgs">
                               {it.patch && <span className="tg-patch">{it.patch}</span>}
                               {it.category && <span className="tg">{it.category}</span>}
@@ -546,9 +746,9 @@ export default function App() {
               {/* 分頁 */}
               {totalPages > 1 && (
                 <div className="pg">
-                  <button className="pg-btn" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}>← 上一頁</button>
-                  <span className="pg-info">第 {page} / {totalPages} 頁（共 {filteredItems.length} 件）</span>
-                  <button className="pg-btn" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}>下一頁 →</button>
+                  <button className="pg-btn" onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}>{t.prevPage}</button>
+                  <span className="pg-info">{t.pageInfo(page, totalPages, filteredItems.length)}</span>
+                  <button className="pg-btn" onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}>{t.nextPage}</button>
                 </div>
               )}
             </div>
@@ -556,28 +756,28 @@ export default function App() {
 
           {/* 右側：統計側欄 */}
           <aside className="sb">
-            <div className="sbh"><Package size={12} />選取清單</div>
+            <div className="sbh"><Package size={12} />{t.sidebarTitle}</div>
             <div className="sbs">
               <div className="ssr">
-                <span className="ssl">選取總數</span>
+                <span className="ssl">{t.totalQtyLabel}</span>
                 <span className="ssv">{totalQty}</span>
               </div>
               <div className="ssr">
-                <span className="ssl">已選項目</span>
-                <span className="sss">{selectedCount} 種傢俱</span>
+                <span className="ssl">{t.selectedLabel}</span>
+                <span className="sss">{selectedCount}{t.kindsSuffix}</span>
               </div>
             </div>
             <div className="sbl">
-              <div className="sblt">明細</div>
+              <div className="sblt">{t.detailTitle}</div>
               {selectedItems.length > 0 && (
                 <div style={{display:"flex",alignItems:"center",padding:"0 8px 4px",gap:4}}>
-                  <span style={{flex:1,fontSize:10,color:"var(--tm)"}}>傢俱</span>
-                  <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>需要</span>
-                  <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>已買</span>
+                  <span style={{flex:1,fontSize:10,color:"var(--tm)"}}>{t.colFurniture}</span>
+                  <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>{t.colNeed}</span>
+                  <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>{t.colBought}</span>
                 </div>
               )}
-              {selectedItems.length === 0 ? (
-                <div className="sbe">尚未選取任何傢俱<br />點擊 + 開始規劃</div>
+              {selectedItems.length === 0 && selectedDyes.length === 0 ? (
+                <div className="sbe">{t.emptyHint[0]}<br />{t.emptyHint[1]}</div>
               ) : selectedItems.map(it => {
                 const bqty = bought[it.id] || 0;
                 const done = bqty >= (quantities[it.id] || 0);
@@ -585,15 +785,15 @@ export default function App() {
                   <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {}}>
                     <a
                       className="sbin"
-                      href={`https://beherw.github.io/FFXIV_Market/item/${it.id}/${encodeURIComponent(it.name_zh || it.name_en || '')}`}
+                      href={t.wikiUrl(it)}
                       target="_blank" rel="noreferrer"
-                      title={displayName(it)}
+                      title={t.displayName(it)}
                       style={{textDecoration:"none",cursor:"pointer"}}
                     >
                       {done && <span style={{color:"#3fb950",marginRight:4}}>✔</span>}
-                      {displayName(it)}
+                      {t.displayName(it)}
                     </a>
-                       <div className="sbi-ctrl">
+                    <div className="sbi-ctrl">
                       <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
                       <span className="sbiq">{quantities[it.id]}</span>
                       <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
@@ -605,6 +805,52 @@ export default function App() {
                   </div>
                 );
               })}
+              {/* 染劑區塊 */}
+              {selectedDyes.length > 0 && (
+                <>
+                  <div className="sblt" style={{marginTop:10}}>{t.dyeSection}</div>
+                  <div style={{display:"flex",alignItems:"center",padding:"0 8px 4px",gap:4}}>
+                    <span style={{flex:1,fontSize:10,color:"var(--tm)"}}>{t.colDye}</span>
+                    <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>{t.colNeed}</span>
+                    <span style={{minWidth:86,textAlign:"center",fontSize:10,color:"var(--tm)"}}>{t.colBought}</span>
+                  </div>
+                  {selectedDyes.map(it => {
+                    const bqty = bought[it.id] || 0;
+                    const done = bqty >= (quantities[it.id] || 0);
+                    const hexColor = DYE_COLOR_MAP && Object.entries(DYE_COLOR_MAP).find(([,v]) => v === it.id)?.[0];
+                    return (
+                      <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {borderLeftColor:"var(--accd)"}}>
+                        <a
+                          className="sbin"
+                          href={t.wikiUrl(it)}
+                          target="_blank" rel="noreferrer"
+                          title={t.displayName(it)}
+                          style={{textDecoration:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6}}
+                        >
+                          {hexColor && (
+                            <span style={{
+                              width:12, height:12, borderRadius:3, flexShrink:0,
+                              background:`#${hexColor}`, border:"1px solid rgba(255,255,255,0.15)",
+                              display:"inline-block",
+                            }} />
+                          )}
+                          {done && <span style={{color:"#3fb950",marginRight:2}}>✔</span>}
+                          {t.displayName(it)}
+                        </a>
+                        <div className="sbi-ctrl">
+                          <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
+                          <span className="sbiq">{quantities[it.id]}</span>
+                          <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                          <span style={{margin:"0 3px",color:"var(--br)"}}>|</span>
+                          <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={(bought[it.id]||0)===0}>−</button>
+                          <span className="sbiq" style={{color:done?"#3fb950":undefined}}>{bought[it.id]||0}</span>
+                          <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={(bought[it.id]||0)>=(quantities[it.id]||0)}>＋</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
           </aside>
         </div>
@@ -613,32 +859,27 @@ export default function App() {
         <footer className="ft">
           <div className="ft-top">
             <div className="ft-block">
-              <div className="ft-label">資料來源</div>
+              <div className="ft-label">{t.srcLabel}</div>
               <div className="ft-text">
-                <a href="https://v2.xivapi.com" target="_blank" rel="noreferrer">XIVAPI v2</a> — 傢俱英日名稱與圖示<br />
-                <a href="https://beherw.github.io/FFXIV_Market/" target="_blank" rel="noreferrer">貝爾的市場小屋（FFXIV_Market）</a> — 繁中名稱對照
+                <a href="https://v2.xivapi.com" target="_blank" rel="noreferrer">{t.srcText1}</a>{t.srcDesc1}<br />
+                <a href="https://beherw.github.io/FFXIV_Market/" target="_blank" rel="noreferrer">{t.srcText2}</a>{t.srcDesc2}
               </div>
             </div>
             <div className="ft-block">
-              <div className="ft-label">致謝</div>
+              <div className="ft-label">{t.thanksLabel}</div>
               <div className="ft-text">
-                感謝 beherw（貝肝煎熬．迦樓羅）維護繁中 FF14 資料庫<br />
-                感謝所有提供回饋的玩家們 ♡
+                {t.thanksText.split("\n").map((line, i) => <span key={i}>{line}{i === 0 && <br />}</span>)}
               </div>
             </div>
             <div className="ft-block">
-              <div className="ft-label">聯絡 / 回報</div>
+              <div className="ft-label">{t.contactLabel}</div>
               <div className="ft-text">
-                <a href="https://discord.com/invite/qnbpYnYV65" target="_blank" rel="noreferrer">Discord 伺服器</a>
+                <a href="https://discord.com/invite/qnbpYnYV65" target="_blank" rel="noreferrer">{t.contactText}</a>
               </div>
             </div>
           </div>
           <div className="ft-bottom">
-            <span>版本 <span className="ft-hi">1.2</span></span>
-            <span>•</span>
-            <span>作者：<span className="ft-hi">若真</span></span>
-            <span>•</span>
-            <span>非官方工具，與 SQUARE ENIX 無關</span>
+            <span style={{color:"var(--ts)"}}>{t.footerAuthor("1.4")}</span>
           </div>
         </footer>
 
