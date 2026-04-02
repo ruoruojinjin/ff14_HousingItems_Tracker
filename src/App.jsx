@@ -57,6 +57,7 @@ const I18N = {
     alertBadFile: "無法解析此 JSON 檔案，請確認是 MakePlace / Re:MakePlace 匯出的格式。",
     csvHeader:    "\uFEFF名稱,分類,需要,已買,總數",
     csvTotal:     (n) => `,,,共計,${n}`,
+    csvDyeHeader: "\uFEFF染劑名稱,取得方式,需要,已買,用於傢俱",
     srcLabel:     "資料來源",
     srcText1:     "XIVAPI v2",
     srcDesc1:     " — 傢俱英日名稱與圖示",
@@ -109,6 +110,7 @@ const I18N = {
     alertBadFile: "Failed to parse JSON. Please make sure it's exported from MakePlace / Re:MakePlace.",
     csvHeader:    "\uFEFFName,Category,Need,Bought,Total",
     csvTotal:     (n) => `,,,Total,${n}`,
+    csvDyeHeader: "\uFEFFDye Name,Source,Need,Bought,Used On",
     srcLabel:     "Data Sources",
     srcText1:     "XIVAPI v2",
     srcDesc1:     " — EN/JP names & icons",
@@ -161,6 +163,7 @@ const I18N = {
     alertBadFile: "JSONの解析に失敗しました。MakePlace / Re:MakePlace からエクスポートしたファイルか確認してください。",
     csvHeader:    "\uFEFF名前,カテゴリ,必要,購入済,合計",
     csvTotal:     (n) => `,,,合計,${n}`,
+    csvDyeHeader: "\uFEFF染料名,入手方法,必要,購入済,使用家具",
     srcLabel:     "データソース",
     srcText1:     "XIVAPI v2",
     srcDesc1:     " — 英語・日本語名称とアイコン",
@@ -177,6 +180,38 @@ const I18N = {
 };
 
 
+
+// ─── 分類/來源翻譯對照表 ──────────────────────────────────────────────────────
+const CAT_MAP = {
+  "EN": {
+    "室內":"Interior","庭具":"Exterior","壁掛":"Wall-mounted","桌上":"Tabletop",
+    "地板":"Floor","地毯":"Carpet","照明":"Lighting","窗簾":"Curtain",
+    "裝飾":"Decorative","桌子":"Table","其他":"Other",
+  },
+  "日本語": {
+    "室內":"室内","庭具":"庭具","壁掛":"壁掛け","桌上":"テーブル上",
+    "地板":"床置き","地毯":"カーペット","照明":"照明","窗簾":"カーテン",
+    "裝飾":"装飾","桌子":"テーブル","其他":"その他",
+  },
+};
+const SRC_MAP = {
+  "EN": {
+    "製作":"Crafting","NPC商店":"NPC Shop","兌換":"Exchange","副本":"Dungeon",
+    "任務獎勵":"Quest Reward","商城購買":"Online Store","大型任務":"Main Quest",
+    "寶箱/容器":"Treasure","怪物掉落":"Monster Drop","採集獲得":"Gathering",
+    "秘籍習得":"Achievement","精製獲得":"Desynthesis","討伐戰":"FATE",
+    "遠航探索":"Voyage","雇員探險":"Retainer","需求材料":"Material","危命任務":"Leve",
+  },
+  "日本語": {
+    "製作":"製作","NPC商店":"NPCショップ","兌換":"交換","副本":"ダンジョン",
+    "任務獎勵":"クエスト報酬","商城購買":"オンラインストア","大型任務":"メインクエスト",
+    "寶箱/容器":"宝箱","怪物掉落":"モンスタードロップ","採集獲得":"採集",
+    "秘籍習得":"称号","精製獲得":"精製","討伐戰":"フェイト",
+    "遠航探索":"航海探索","雇員探險":"リテイナー探索","需求材料":"素材","危命任務":"リーヴ",
+  },
+};
+function tCat(cat, lang) { return CAT_MAP[lang]?.[cat] ?? cat; }
+function tSrc(src, lang) { return SRC_MAP[lang]?.[src] ?? src; }
 
 // ─── 繁簡互轉 ─────────────────────────────────────────────────────────────────
 // 繁簡互轉對照表
@@ -220,17 +255,41 @@ function shareToDiscord(t)      { try { navigator.clipboard.writeText(SITE_TITLE
 function copyLink(t)            { try { navigator.clipboard.writeText(SITE_URL); alert(t.alertLink); } catch { alert(SITE_URL); } }
 
 // ─── CSV 匯出 ─────────────────────────────────────────────────────────────────
-function exportCSV(quantities, bought, t) {
+function exportCSV(quantities, bought, dyeMap, t, lang) {
   const sel = ITEMS_DATA.filter(it => (quantities[it.id] || 0) > 0);
-  if (!sel.length) { alert(t.alertNoSel); return; }
+  const selDyes = DYES_DATA.filter(it => (quantities[it.id] || 0) > 0);
+  if (!sel.length && !selDyes.length) { alert(t.alertNoSel); return; }
   const total = sel.reduce((s, it) => s + quantities[it.id], 0);
-  const rows  = [
+
+  // 傢俱區塊
+  const rows = [
     t.csvHeader,
-    ...sel.map(it => `${t.displayName(it)},${it.category},${quantities[it.id]},${bought[it.id]||0},`),
+    ...sel.map(it => `${t.displayName(it)},${tCat(it.category, lang)},${quantities[it.id]},${bought[it.id]||0},`),
     t.csvTotal(total),
-  ].join("\n");
+  ];
+
+  // 染劑區塊
+  if (selDyes.length > 0) {
+    rows.push(""); // 空行分隔
+    rows.push(t.csvDyeHeader);
+    for (const it of selDyes) {
+      const sources = (it.sources || []).map(s => tSrc(s, lang)).join("／");
+      const furList = dyeMap[it.id]
+        ? Object.values(dyeMap[it.id]).map(f => {
+            const furItem = ITEMS_DATA.find(x => x.id === (f.itemId || Number(Object.keys(dyeMap[it.id]).find(k => dyeMap[it.id][k] === f))));
+            const furName = furItem ? t.displayName(furItem) : f.name;
+            return `${furName}×${f.count}`;
+          }).join("、")
+        : "";
+      // 包在引號內避免逗號問題
+      rows.push(`${t.displayName(it)},${sources},${quantities[it.id]},${bought[it.id]||0},"${furList}"`);
+    }
+    const dyeTotal = selDyes.reduce((s, it) => s + (quantities[it.id] || 0), 0);
+    rows.push(t.csvTotal(dyeTotal));
+  }
+
   const a = Object.assign(document.createElement("a"), {
-    href: URL.createObjectURL(new Blob([rows], { type: "text/csv;charset=utf-8;" })),
+    href: URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" })),
     download: "ff14_furniture.csv",
   });
   a.click(); URL.revokeObjectURL(a.href);
@@ -251,6 +310,8 @@ function parseMakePlaceJSON(text) {
     const counts = {};
     // 統計染劑數量（從 color 欄位）
     const dyeCounts = {};
+    // 記錄每種染劑用在哪些傢俱上：dyeId → { itemId: { name, count } }
+    const dyeToFurniture = {};
     for (const item of allItems) {
       const id = item.itemId;
       if (!id || id === 0) continue;
@@ -262,17 +323,21 @@ function parseMakePlaceJSON(text) {
           const dyeId = DYE_COLOR_MAP[hex];
           if (dyeId) {
             dyeCounts[dyeId] = (dyeCounts[dyeId] || 0) + 1;
+            // 記錄傢俱對應
+            if (!dyeToFurniture[dyeId]) dyeToFurniture[dyeId] = {};
+            if (!dyeToFurniture[dyeId][id]) dyeToFurniture[dyeId][id] = { name: item.name || `ID:${id}`, count: 0, itemId: Number(id) };
+            dyeToFurniture[dyeId][id].count += 1;
           }
         }
       }
     }
-    return { counts, dyeCounts, data };
+    return { counts, dyeCounts, dyeToFurniture, data };
   } catch (e) {
     return null;
   }
 }
 
-function importMakePlaceFile(setQuantities, t) {
+function importMakePlaceFile(setQuantities, setDyeMap, t) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -289,7 +354,7 @@ function importMakePlaceFile(setQuantities, t) {
         alert(t.alertBadFile);
         return;
       }
-      const { counts, dyeCounts, data } = parsed;
+      const { counts, dyeCounts, dyeToFurniture, data } = parsed;
       const knownIds = new Set(ITEMS_DATA.map(it => it.id));
       const matched = {};
       let total = 0;
@@ -312,6 +377,18 @@ function importMakePlaceFile(setQuantities, t) {
         // 加入染劑數量
         for (const [id, cnt] of Object.entries(dyeCounts)) {
           next[Number(id)] = (next[Number(id)] || 0) + cnt;
+        }
+        return next;
+      });
+      // 儲存染劑→傢俱對應
+      setDyeMap(prev => {
+        const next = { ...prev };
+        for (const [dyeId, furMap] of Object.entries(dyeToFurniture)) {
+          if (!next[dyeId]) next[dyeId] = {};
+          for (const [itemId, info] of Object.entries(furMap)) {
+            if (!next[dyeId][itemId]) next[dyeId][itemId] = { name: info.name, count: 0 };
+            next[dyeId][itemId].count += info.count;
+          }
         }
         return next;
       });
@@ -552,6 +629,7 @@ export default function App() {
   const t = I18N[lang] || I18N["繁中"];
   const [quantities, setQuantities] = useState(() => ls.getJSON("ff14_qty", {}));
   const [bought,     setBought]     = useState(() => ls.getJSON("ff14_bought", {}));
+  const [dyeMap,     setDyeMap]     = useState(() => ls.getJSON("ff14_dyemap", {}));
   // 記錄各 item 第一次被加入的順序（用 ref + counter，不觸發 re-render）
   const addOrderRef = useRef({});
   const addCounterRef = useRef(0);
@@ -562,6 +640,7 @@ export default function App() {
   useEffect(() => { ls.set("ff14_lang", lang); setActiveCat(t.categories[0]); }, [lang]);
   useEffect(() => { ls.setJSON("ff14_qty", quantities); }, [quantities]);
   useEffect(() => { ls.setJSON("ff14_bought", bought); }, [bought]);
+  useEffect(() => { ls.setJSON("ff14_dyemap", dyeMap); }, [dyeMap]);
 
   const adjustQty = useCallback((id, delta) => {
     if (!addOrderRef.current[id]) addOrderRef.current[id] = ++addCounterRef.current;
@@ -659,18 +738,19 @@ export default function App() {
             <span className="hd-sub">{t.titleSub}</span>
           </div>
           <div className="hd-r">
-            <button className="btn" onClick={() => importMakePlaceFile(setQuantities, t)}>
+            <button className="btn" onClick={() => importMakePlaceFile(setQuantities, setDyeMap, t)}>
               <Upload size={12} />{t.importBtn}
             </button>
             <button className="btn btn-del" onClick={() => {
                 setQuantities({});
                 setBought({});
+                setDyeMap({});
                 addOrderRef.current = {};
                 addCounterRef.current = 0;
               }}>
               <Trash2 size={12} />{t.clearBtn}
             </button>
-            <button className="btn btn-acc" onClick={() => exportCSV(quantities, bought, t)}>
+            <button className="btn btn-acc" onClick={() => exportCSV(quantities, bought, dyeMap, t, lang)}>
               <Download size={12} />{t.exportBtn}
             </button>
             {/* 語言切換下拉 */}
@@ -852,6 +932,20 @@ export default function App() {
                               <span key={s} className="tg-src">{s}</span>
                             ))}
                           </div>
+                          {dyeMap[it.id] && Object.values(dyeMap[it.id]).length > 0 && (
+                            <div style={{marginTop:5, paddingLeft:2}}>
+                              {Object.entries(dyeMap[it.id]).map(([fid, info]) => {
+                                const furItem = ITEMS_DATA.find(x => x.id === (info.itemId || Number(fid)));
+                                const furName = furItem ? t.displayName(furItem) : info.name;
+                                return (
+                                  <div key={fid} style={{fontSize:10, color:"var(--ts)", lineHeight:1.7}}>
+                                    <span style={{color:"var(--tm)"}}>• </span>{furName}
+                                    <span style={{color:"var(--acc)", fontWeight:600, marginLeft:4}}>×{info.count}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                         <div className="sbi-ctrl">
                           <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
