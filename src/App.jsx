@@ -64,7 +64,7 @@ const I18N = {
     srcText2:     "貝爾的市場小屋（FFXIV_Market）",
     srcDesc2:     " — 繁中名稱對照",
     thanksLabel:  "致謝",
-    thanksText:   "感謝 beherw（貝肝煎熬．迦樓羅）維護繁中 FF14 資料庫\n感謝所有提供回饋的玩家們 ♡",
+    thanksText:   "感謝 beherw（貝肝煎熬．迦樓羅）維護繁中 FF14 資料庫\n哈巴庫克\n感謝所有提供回饋的玩家們 ♡",
     contactLabel: "聯絡 / 回報",
     contactText:  "Discord 伺服器",
     footerAuthor: (v) => `版本 ${v} • 作者：若真 • 非官方工具，與 SQUARE ENIX 無關`,
