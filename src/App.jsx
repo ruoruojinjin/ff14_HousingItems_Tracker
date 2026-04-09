@@ -64,7 +64,7 @@ const I18N = {
     srcText2:     "貝爾的市場小屋（FFXIV_Market）",
     srcDesc2:     " — 繁中名稱對照",
     thanksLabel:  "致謝",
-    thanksText:   "感謝 beherw（貝肝煎熬．迦樓羅）維護繁中 FF14 資料庫\n哈巴庫克\n感謝所有提供回饋的玩家們 ♡",
+    thanksText:   "感謝 beherw（貝肝煎熬．迦樓羅）對於繁中 FF14 資料庫的維護\n感謝哈巴庫克提供的改良建議給找Bugs \n感謝所有提供回饋的玩家們 ♡",
     contactLabel: "聯絡 / 回報",
     contactText:  "Discord 伺服器",
     footerAuthor: (v) => `版本 ${v} • 作者：若真 • 非官方工具，與 SQUARE ENIX 無關`,
@@ -978,7 +978,7 @@ export default function App() {
             <div className="ft-block">
               <div className="ft-label">{t.thanksLabel}</div>
               <div className="ft-text">
-                {t.thanksText.split("\n").map((line, i) => <span key={i}>{line}{i === 0 && <br />}</span>)}
+                {t.thanksText.split("\n").map((line, i) => <span key={i}>{line}{i < lines.length - 1 && <br />}
               </div>
             </div>
             <div className="ft-block">
