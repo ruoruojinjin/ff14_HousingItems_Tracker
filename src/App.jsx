@@ -978,7 +978,7 @@ export default function App() {
             <div className="ft-block">
               <div className="ft-label">{t.thanksLabel}</div>
               <div className="ft-text">
-                {t.thanksText.split("\n").map((line, i) => <span key={i}>{line}{i < lines.length - 1 && <br />}
+                {t.thanksText.split("\n").map((line, i, arr) => <span key={i}>{line}{i < arr.length - 1 && <br />}</span>)}
               </div>
             </div>
             <div className="ft-block">
