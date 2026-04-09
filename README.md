@@ -47,7 +47,7 @@ npm run dev
 
 匯出 CSV，帶去市場購買 🛒。
 
-## 🚀 未來規劃 Roadma
+## 🚀 未來規劃 Roadma (已完成)
 ✅ (已完成) 支援 Re: MakePlace / MakePlace JSON 匯入
 
 ✅ 物品所屬版本（Patch）顯示
@@ -59,11 +59,9 @@ npm run dev
 ✅ 物品詳細資料連結
 點擊物品名稱可直接前往[市場](https://beherw.github.io/FFXIV_Market/)
 
-📤 匯出至 Teamcraft (購物 / 製作清單)
+✅ 染色與分類統計
 
-🎨 染色與分類統計
-
-🌐 多語言支援
+✅ 多語言支援
 
 ## ☕ 支持開發
 如果這個工具對你有幫助，歡迎支持開發：
