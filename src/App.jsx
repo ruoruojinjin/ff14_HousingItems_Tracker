@@ -3,7 +3,7 @@ import FURNITURE_DATA from "./furniture.json";
 import DYE_COLOR_MAP from "./dye-color-map.json"; // hex → dye item id
 
 const ITEMS_DATA = FURNITURE_DATA.filter(it => it.type === "furniture");
-const DYES_DATA   = FURNITURE_DATA.filter(it => it.type === "dye");
+const DYES_DATA   = FURNITURE_DATA.filter(it => it.type === "dye" && it.id !== 5728); // 排除松節油（退色劑）
 import { Search, Sun, Moon, Trash2, Download, Package, ListFilter, Upload } from "lucide-react";
 
 // ─── localStorage helpers ─────────────────────────────────────────────────────
@@ -36,6 +36,9 @@ const I18N = {
     totalQtyLabel:"選取總數",
     selectedLabel:"已選項目",
     kindsSuffix:  " 種傢俱",
+    dyeTotalLabel:"🎨 染劑總數",
+    dyeKindLabel: "染劑種類",
+    dyeKindSuffix:" 種",
     detailTitle:  "明細",
     colFurniture: "傢俱",
     colDye:       "染劑",
@@ -89,6 +92,9 @@ const I18N = {
     totalQtyLabel:"Total Qty",
     selectedLabel:"Selected",
     kindsSuffix:  " items",
+    dyeTotalLabel:"🎨 Dye Total",
+    dyeKindLabel: "Dye Types",
+    dyeKindSuffix:" types",
     detailTitle:  "Details",
     colFurniture: "Furniture",
     colDye:       "Dye",
@@ -142,6 +148,9 @@ const I18N = {
     totalQtyLabel:"合計数量",
     selectedLabel:"選択中",
     kindsSuffix:  " 種類",
+    dyeTotalLabel:"🎨 染料合計",
+    dyeKindLabel: "染料種類",
+    dyeKindSuffix:" 種",
     detailTitle:  "詳細",
     colFurniture: "家具",
     colDye:       "染料",
@@ -337,7 +346,7 @@ function parseMakePlaceJSON(text) {
   }
 }
 
-function importMakePlaceFile(setQuantities, setDyeMap, t) {
+function importMakePlaceFile(setQuantities, setDyeMap, setFurnitureDyes, setOrderedItemIds, setOrderedDyeIds, t) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json";
@@ -374,11 +383,20 @@ function importMakePlaceFile(setQuantities, setDyeMap, t) {
         for (const [id, cnt] of Object.entries(matched)) {
           next[Number(id)] = (next[Number(id)] || 0) + cnt;
         }
-        // 加入染劑數量
         for (const [id, cnt] of Object.entries(dyeCounts)) {
           next[Number(id)] = (next[Number(id)] || 0) + cnt;
         }
         return next;
+      });
+      setOrderedItemIds(prev => {
+        const existing = new Set(prev);
+        const newIds = Object.keys(matched).map(Number).filter(id => !existing.has(id));
+        return [...prev, ...newIds];
+      });
+      setOrderedDyeIds(prev => {
+        const existing = new Set(prev);
+        const newIds = Object.keys(dyeCounts).map(Number).filter(id => !existing.has(id));
+        return [...prev, ...newIds];
       });
       // 儲存染劑→傢俱對應
       setDyeMap(prev => {
@@ -386,8 +404,20 @@ function importMakePlaceFile(setQuantities, setDyeMap, t) {
         for (const [dyeId, furMap] of Object.entries(dyeToFurniture)) {
           if (!next[dyeId]) next[dyeId] = {};
           for (const [itemId, info] of Object.entries(furMap)) {
-            if (!next[dyeId][itemId]) next[dyeId][itemId] = { name: info.name, count: 0 };
+            if (!next[dyeId][itemId]) next[dyeId][itemId] = { name: info.name, count: 0, itemId: Number(itemId) };
             next[dyeId][itemId].count += info.count;
+          }
+        }
+        return next;
+      });
+      // 同步傢俱→染劑對應（反向）
+      setFurnitureDyes(prev => {
+        const next = { ...prev };
+        for (const [dyeId, furMap] of Object.entries(dyeToFurniture)) {
+          for (const [itemId, info] of Object.entries(furMap)) {
+            if (!next[itemId]) next[itemId] = {};
+            if (!next[itemId][dyeId]) next[itemId][dyeId] = 0;
+            next[itemId][dyeId] += info.count;
           }
         }
         return next;
@@ -564,7 +594,8 @@ const STYLES = `
   .sbi { display:flex; align-items:center; padding:6px 10px; border-radius:5px; border-left:2px solid var(--accd); background:var(--bgc); gap:6px; }
   .sbin { font-size:15px; color:var(--tp); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; transition:color .14s; }
   .sbin:hover { color:var(--acc); }
-  .sbi-ctrl { display:flex; align-items:center; gap:5px; margin-left:auto; flex-shrink:0; }
+  .sbi-ctrl { display:flex; align-items:center; gap:0; margin-left:auto; flex-shrink:0; }
+  .sbi-ctrl-group { display:flex; align-items:center; gap:2px; }
   .sbi-btn {
     width:26px; height:26px; border-radius:5px; border:1px solid var(--br);
     background:var(--btb); color:var(--ts); font-size:16px; cursor:pointer;
@@ -573,8 +604,27 @@ const STYLES = `
   }
   .sbi-btn:hover:not(:disabled) { background:var(--bth); color:var(--tp); border-color:var(--accd); }
   .sbi-btn:disabled { opacity:.35; cursor:default; }
-  .sbiq { min-width:28px; text-align:center; font-size:14px; font-weight:600; color:var(--acc); font-variant-numeric:tabular-nums; }
+  .sbiq { min-width:20px; text-align:center; font-size:14px; font-weight:600; color:var(--acc); font-variant-numeric:tabular-nums; }
   .sbe { font-size:14px; color:var(--tm); text-align:center; padding:22px 0; line-height:1.8; }
+
+  /* ── DYE PANEL ── */
+  .dye-panel {
+    margin-top:6px; padding:8px; border-radius:6px;
+    background:var(--bg2); border:1px solid var(--br);
+  }
+  .dye-panel-input {
+    width:100%; padding:5px 8px; margin-bottom:6px;
+    background:var(--bgc); border:1px solid var(--br);
+    border-radius:5px; color:var(--tp); font-size:12px;
+    font-family:inherit; outline:none;
+  }
+  .dye-panel-input:focus { border-color:var(--accd); }
+  .dye-panel-row {
+    display:flex; align-items:center; gap:0;
+    padding:3px 0; font-size:12px; color:var(--ts);
+  }
+  .dye-panel-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-right:3px; }
+  .dye-tag-row { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; }
 
   /* ── FOOTER ── */
   .ft {
@@ -629,10 +679,15 @@ export default function App() {
   const t = I18N[lang] || I18N["繁中"];
   const [quantities, setQuantities] = useState(() => ls.getJSON("ff14_qty", {}));
   const [bought,     setBought]     = useState(() => ls.getJSON("ff14_bought", {}));
-  const [dyeMap,     setDyeMap]     = useState(() => ls.getJSON("ff14_dyemap", {}));
+  const [dyeMap,        setDyeMap]        = useState(() => ls.getJSON("ff14_dyemap", {}));
+  const [furnitureDyes, setFurnitureDyes] = useState(() => ls.getJSON("ff14_furdyes", {}));
+  const [dyePanelOpen,  setDyePanelOpen]  = useState(null); // 目前展開的傢俱 id
+  const [dyeSearch,     setDyeSearch]     = useState("");
   // 記錄各 item 第一次被加入的順序（用 ref + counter，不觸發 re-render）
   const addOrderRef = useRef({});
   const addCounterRef = useRef(0);
+  const furnitureDyesRef = useRef(furnitureDyes);
+  useEffect(() => { furnitureDyesRef.current = furnitureDyes; }, [furnitureDyes]);
   const [activeCat,  setActiveCat]  = useState(() => I18N[ls.get("ff14_lang","繁中")].categories[0]);
   const [search,     setSearch]     = useState("");
 
@@ -641,14 +696,20 @@ export default function App() {
   useEffect(() => { ls.setJSON("ff14_qty", quantities); }, [quantities]);
   useEffect(() => { ls.setJSON("ff14_bought", bought); }, [bought]);
   useEffect(() => { ls.setJSON("ff14_dyemap", dyeMap); }, [dyeMap]);
+  useEffect(() => { ls.setJSON("ff14_furdyes", furnitureDyes); }, [furnitureDyes]);
 
   const adjustQty = useCallback((id, delta) => {
-    if (!addOrderRef.current[id]) addOrderRef.current[id] = ++addCounterRef.current;
+    const isItem = ITEMS_DATA.some(it => it.id === id);
+    const isDye  = DYES_DATA.some(it => it.id === id);
     setQuantities(prev => {
-      const next = Math.max(0, (prev[id] || 0) + delta);
+      const cur = prev[id] || 0;
+      const next = Math.max(0, cur + delta);
+      if (cur === 0 && next > 0) {
+        // 新加入：記錄順序
+        if (isItem) setOrderedItemIds(o => o.includes(id) ? o : [...o, id]);
+        if (isDye)  setOrderedDyeIds(o  => o.includes(id) ? o : [...o, id]);
+      }
       if (next === 0) {
-        delete addOrderRef.current[id];
-        // 需要歸零時，已買也歸零
         setBought(b => { const { [id]: _, ...rest } = b; return rest; });
         const { [id]: _, ...rest } = prev; return rest;
       }
@@ -691,21 +752,25 @@ export default function App() {
   const totalPages   = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
   const pagedItems   = filteredItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const { totalQty, selectedCount, selectedItems, selectedDyes } = useMemo(() => {
-    const si = ITEMS_DATA
-      .filter(it => (quantities[it.id] || 0) > 0)
-      .sort((a, b) => (addOrderRef.current[a.id] || 0) - (addOrderRef.current[b.id] || 0));
-    const sd = DYES_DATA
-      .filter(it => (quantities[it.id] || 0) > 0)
-      .sort((a, b) => (addOrderRef.current[a.id] || 0) - (addOrderRef.current[b.id] || 0));
-    const allSelected = [...si, ...sd];
+  const [orderedItemIds, setOrderedItemIds] = useState(() => ls.getJSON("ff14_ordered_items", []));
+  const [orderedDyeIds,  setOrderedDyeIds]  = useState(() => ls.getJSON("ff14_ordered_dyes",  []));
+  useEffect(() => { ls.setJSON("ff14_ordered_items", orderedItemIds); }, [orderedItemIds]);
+  useEffect(() => { ls.setJSON("ff14_ordered_dyes",  orderedDyeIds);  }, [orderedDyeIds]);
+
+  const { totalQty, selectedCount, dyeTotalQty, dyeCount, selectedItems, selectedDyes } = useMemo(() => {
+    const qtyItems = new Set(ITEMS_DATA.filter(it => (quantities[it.id]||0)>0).map(it=>it.id));
+    const qtyDyes  = new Set(DYES_DATA.filter(it => (quantities[it.id]||0)>0).map(it=>it.id));
+    const si = orderedItemIds.filter(id=>qtyItems.has(id)).map(id=>ITEMS_DATA.find(it=>it.id===id)).filter(Boolean);
+    const sd = orderedDyeIds.filter(id=>qtyDyes.has(id)).map(id=>DYES_DATA.find(it=>it.id===id)).filter(Boolean);
     return {
       selectedItems: si,
       selectedDyes: sd,
-      selectedCount: allSelected.length,
-      totalQty: allSelected.reduce((s, it) => s + (quantities[it.id] || 0), 0),
+      selectedCount: si.length,
+      totalQty: si.reduce((s,it)=>s+(quantities[it.id]||0),0),
+      dyeCount: sd.length,
+      dyeTotalQty: sd.reduce((s,it)=>s+(quantities[it.id]||0),0),
     };
-  }, [quantities]);
+  }, [quantities, orderedItemIds, orderedDyeIds]);
 
   return (
     <>
@@ -738,15 +803,17 @@ export default function App() {
             <span className="hd-sub">{t.titleSub}</span>
           </div>
           <div className="hd-r">
-            <button className="btn" onClick={() => importMakePlaceFile(setQuantities, setDyeMap, t)}>
+            <button className="btn" onClick={() => importMakePlaceFile(setQuantities, setDyeMap, setFurnitureDyes, setOrderedItemIds, setOrderedDyeIds, t)}>
               <Upload size={12} />{t.importBtn}
             </button>
             <button className="btn btn-del" onClick={() => {
                 setQuantities({});
                 setBought({});
                 setDyeMap({});
-                addOrderRef.current = {};
-                addCounterRef.current = 0;
+                setFurnitureDyes({});
+                setDyePanelOpen(null);
+                setOrderedItemIds([]);
+                setOrderedDyeIds([]);
               }}>
               <Trash2 size={12} />{t.clearBtn}
             </button>
@@ -846,6 +913,18 @@ export default function App() {
                 <span className="ssl">{t.selectedLabel}</span>
                 <span className="sss">{selectedCount}{t.kindsSuffix}</span>
               </div>
+              {dyeCount > 0 && (
+                <>
+                  <div className="ssr" style={{marginTop:6}}>
+                    <span className="ssl">{t.dyeTotalLabel}</span>
+                    <span className="ssv" style={{fontSize:20}}>{dyeTotalQty}</span>
+                  </div>
+                  <div className="ssr">
+                    <span className="ssl">{t.dyeKindLabel}</span>
+                    <span className="sss">{dyeCount}{t.dyeKindSuffix}</span>
+                  </div>
+                </>
+              )}
             </div>
             <div className="sbl">
               <div className="sblt">{t.detailTitle}</div>
@@ -861,35 +940,131 @@ export default function App() {
               ) : selectedItems.map(it => {
                 const bqty = bought[it.id] || 0;
                 const done = bqty >= (quantities[it.id] || 0);
+                const itDyes = furnitureDyes[it.id] || furnitureDyes[String(it.id)] || {};
+                const hasDyes = Object.values(itDyes).some(c => c > 0);
+                const isOpen = dyePanelOpen === it.id;
+                const filteredDyes = DYES_DATA.filter(d => {
+                  if (dyeSearch.trim()) {
+                    const q = dyeSearch.toLowerCase();
+                    return (t.displayName(d) || "").toLowerCase().includes(q);
+                  }
+                  // 未搜尋：顯示已選的 + 其他（依序）
+                  return true;
+                });
                 return (
-                  <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {}}>
-                    <div style={{flex:1, minWidth:0}}>
-                      <a
-                        className="sbin"
-                        href={t.wikiUrl(it)}
-                        target="_blank" rel="noreferrer"
-                        title={t.displayName(it)}
-                        style={{textDecoration:"none",cursor:"pointer"}}
-                      >
-                        {done && <span style={{color:"#3fb950",marginRight:4}}>✔</span>}
-                        {t.displayName(it)}
-                      </a>
-                      <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:3}}>
-                        {it.patch && <span className="tg-patch">{it.patch}</span>}
-                        {it.sources && it.sources.map(s => (
-                          <span key={s} className="tg-src">{s}</span>
-                        ))}
+                  <div key={it.id}>
+                    <div className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {}}>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
+                          <a
+                            className="sbin"
+                            href={t.wikiUrl(it)}
+                            target="_blank" rel="noreferrer"
+                            title={t.displayName(it)}
+                            style={{textDecoration:"none",cursor:"pointer",flex:"none",maxWidth:"calc(100% - 28px)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}
+                          >
+                            {done && <span style={{color:"#3fb950",marginRight:4}}>✔</span>}
+                            {t.displayName(it)}
+                          </a>
+                          <button
+                            style={{
+                              background:"none", border:"none", cursor:"pointer", padding:"0 2px",
+                              fontSize:13, opacity: 1,
+                              color: isOpen||hasDyes ? "var(--acc)" : "var(--tm)",
+                              flexShrink:0,
+                            }}
+                            title="染劑"
+                            onClick={() => { setDyePanelOpen(isOpen ? null : it.id); setDyeSearch(""); }}
+                          >🎨</button>
+                        </div>
+                        <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:3}}>
+                          {it.patch && <span className="tg-patch">{it.patch}</span>}
+                          {it.sources && it.sources.map(s => (
+                            <span key={s} className="tg-src">{s}</span>
+                          ))}
+                        </div>
+                        {hasDyes && (
+                          <div className="dye-tag-row">
+                            {Object.entries(itDyes).filter(([,c])=>c>0).map(([dyeId, cnt]) => {
+                              const dyeItem = DYES_DATA.find(d => d.id === Number(dyeId));
+                              const hexColor = DYE_COLOR_MAP && Object.entries(DYE_COLOR_MAP).find(([,v]) => v === Number(dyeId))?.[0];
+                              return (
+                                <span key={dyeId} style={{fontSize:10,color:"var(--ts)",display:"flex",alignItems:"center",gap:2}}>
+                                  {hexColor && <span style={{width:8,height:8,borderRadius:2,background:`#${hexColor}`,display:"inline-block",border:"1px solid rgba(255,255,255,0.15)"}}/>}
+                                  {dyeItem ? t.displayName(dyeItem) : `ID:${dyeId}`}×{cnt}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="sbi-ctrl">
+                        <div className="sbi-ctrl-group">
+                          <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
+                          <span className="sbiq">{quantities[it.id]}</span>
+                          <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
+                        </div>
+                        <span style={{margin:"0 6px",color:"var(--br)"}}>|</span>
+                        <div className="sbi-ctrl-group">
+                          <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={(bought[it.id]||0)===0}>−</button>
+                          <span className="sbiq" style={{color:(bought[it.id]||0)>=(quantities[it.id]||0)&&(quantities[it.id]||0)>0?"#3fb950":undefined}}>{bought[it.id]||0}</span>
+                          <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={(bought[it.id]||0)>=(quantities[it.id]||0)}>＋</button>
+                        </div>
                       </div>
                     </div>
-                    <div className="sbi-ctrl">
-                      <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
-                      <span className="sbiq">{quantities[it.id]}</span>
-                      <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
-                      <span style={{margin:"0 3px",color:"var(--br)"}}>|</span>
-                      <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={(bought[it.id]||0)===0}>−</button>
-                      <span className="sbiq" style={{color:(bought[it.id]||0)>=(quantities[it.id]||0)&&(quantities[it.id]||0)>0?"#3fb950":undefined}}>{bought[it.id]||0}</span>
-                      <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={(bought[it.id]||0)>=(quantities[it.id]||0)}>＋</button>
-                    </div>
+                    {isOpen && (
+                      <div className="dye-panel">
+                        <input
+                          className="dye-panel-input"
+                          placeholder="搜尋染劑…"
+                          value={dyeSearch}
+                          onChange={e => setDyeSearch(e.target.value)}
+                        />
+                        <div style={{maxHeight:220, overflowY:"auto"}}>
+                          {filteredDyes.map(d => {
+                            const cnt = itDyes[d.id] || itDyes[String(d.id)] || 0;
+                            const hexColor = DYE_COLOR_MAP && Object.entries(DYE_COLOR_MAP).find(([,v]) => v === d.id)?.[0];
+                            return (
+                              <div key={d.id} className="dye-panel-row">
+                                {hexColor && <span style={{width:10,height:10,borderRadius:2,background:`#${hexColor}`,display:"inline-block",flexShrink:0,border:"1px solid rgba(255,255,255,0.15)",marginRight:5}}/>}
+                                <span className="dye-panel-name">{t.displayName(d)}</span>
+                                <div className="sbi-ctrl-group">
+                                  <button className="sbi-btn" style={{width:22,height:22,fontSize:13}}
+                                    disabled={cnt===0}
+                                    onClick={() => {
+                                      const cur = furnitureDyesRef.current;
+                                      const itemDyes = {...(cur[it.id]||{})};
+                                      const newCnt = Math.max(0,(itemDyes[d.id]||0)-1);
+                                      if (newCnt===0) delete itemDyes[d.id]; else itemDyes[d.id]=newCnt;
+                                      const next = {...cur};
+                                      if (Object.keys(itemDyes).length===0) delete next[it.id]; else next[it.id]=itemDyes;
+                                      setFurnitureDyes(next);
+                                      const total = Object.values(next).reduce((s,dyes)=>s+(dyes[d.id]||0),0);
+                                      setQuantities(p=>{if(total===0){const{[d.id]:_,...r}=p;return r;}return{...p,[d.id]:total};});
+                                      if (total===0) setOrderedDyeIds(o=>o.filter(id=>id!==d.id));
+                                      setDyeMap(p=>{const n={...p};if(!n[d.id])n[d.id]={};if(newCnt===0){const{[it.id]:_,...r}=n[d.id];n[d.id]=r;}else n[d.id]={...n[d.id],[it.id]:{name:t.displayName(it),count:newCnt,itemId:it.id}};if(Object.keys(n[d.id]).length===0)delete n[d.id];return n;});
+                                      setDyePanelOpen(null);
+                                    }}>−</button>
+                                  <span style={{minWidth:14,textAlign:"center",fontSize:12,fontWeight:600,color:cnt>0?"var(--acc)":"var(--tm)"}}>{cnt}</span>
+                                  <button className="sbi-btn" style={{width:22,height:22,fontSize:13}}
+                                    onClick={() => {
+                                      const cur = furnitureDyesRef.current;
+                                      const newCnt = (cur[it.id]?.[d.id]||0)+1;
+                                      const next = {...cur,[it.id]:{...(cur[it.id]||{}),[d.id]:newCnt}};
+                                      setFurnitureDyes(next);
+                                      const total = Object.values(next).reduce((s,dyes)=>s+(dyes[d.id]||0),0);
+                                      setQuantities(p=>({...p,[d.id]:total}));
+                                      setOrderedDyeIds(o=>o.includes(d.id)?o:[...o,d.id]);
+                                      setDyeMap(p=>{const n={...p};if(!n[d.id])n[d.id]={};n[d.id]={...n[d.id],[it.id]:{name:t.displayName(it),count:newCnt,itemId:it.id}};return n;});
+                                      setDyePanelOpen(null);
+                                    }}>＋</button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -907,7 +1082,7 @@ export default function App() {
                     const done = bqty >= (quantities[it.id] || 0);
                     const hexColor = DYE_COLOR_MAP && Object.entries(DYE_COLOR_MAP).find(([,v]) => v === it.id)?.[0];
                     return (
-                      <div key={it.id} className="sbi" style={done ? {borderLeftColor:"#3fb950", background:"rgba(63,185,80,0.07)"} : {borderLeftColor:"var(--accd)"}}>
+                      <div key={it.id} className="sbi" style={{...(done?{borderLeftColor:"#3fb950",background:"rgba(63,185,80,0.07)"}:{borderLeftColor:"var(--accd)"}),alignItems:"flex-start"}}>
                         <div style={{flex:1, minWidth:0}}>
                           <a
                             className="sbin"
@@ -932,29 +1107,71 @@ export default function App() {
                               <span key={s} className="tg-src">{s}</span>
                             ))}
                           </div>
-                          {dyeMap[it.id] && Object.values(dyeMap[it.id]).length > 0 && (
-                            <div style={{marginTop:5, paddingLeft:2}}>
-                              {Object.entries(dyeMap[it.id]).map(([fid, info]) => {
-                                const furItem = ITEMS_DATA.find(x => x.id === (info.itemId || Number(fid)));
-                                const furName = furItem ? t.displayName(furItem) : info.name;
-                                return (
-                                  <div key={fid} style={{fontSize:10, color:"var(--ts)", lineHeight:1.7}}>
-                                    <span style={{color:"var(--tm)"}}>• </span>{furName}
-                                    <span style={{color:"var(--acc)", fontWeight:600, marginLeft:4}}>×{info.count}</span>
+                          {(() => {
+                            const dyeEntries = dyeMap[it.id] ? Object.entries(dyeMap[it.id]) : [];
+                            const totalNeed = quantities[it.id] || 0;
+                            return (
+                              <div style={{marginTop:5,paddingLeft:2}}>
+                                {dyeEntries.length>0 ? dyeEntries.map(([fid,info])=>{
+                                  const furItem = ITEMS_DATA.find(x=>x.id===(info.itemId||Number(fid)));
+                                  const furName = furItem?t.displayName(furItem):info.name;
+                                  const furId = info.itemId||Number(fid);
+                                  const furDyeCnt = furnitureDyes[furId]?.[it.id]||furnitureDyes[String(furId)]?.[it.id]||0;
+                                  return (
+                                    <div key={fid} style={{fontSize:10,color:"var(--ts)",display:"flex",alignItems:"center",gap:4,padding:"1px 0"}}>
+                                      <span style={{color:"var(--tm)"}}>• </span>
+                                      <span style={{flex:1}}>{furName}</span>
+                                      <div className="sbi-ctrl-group">
+                                        <button className="sbi-btn" style={{width:18,height:18,fontSize:11}} disabled={furDyeCnt===0}
+                                          onClick={()=>{
+                                            const cur=furnitureDyesRef.current;
+                                            const itemDyes={...(cur[furId]||{})};
+                                            const newCnt=Math.max(0,(itemDyes[it.id]||0)-1);
+                                            if(newCnt===0)delete itemDyes[it.id];else itemDyes[it.id]=newCnt;
+                                            const next={...cur};
+                                            if(Object.keys(itemDyes).length===0)delete next[furId];else next[furId]=itemDyes;
+                                            setFurnitureDyes(next);
+                                            const total=Object.values(next).reduce((s,d)=>s+(d[it.id]||0),0);
+                                            setQuantities(p=>{if(total===0){const{[it.id]:_,...r}=p;return r;}return{...p,[it.id]:total};});
+                                            if(total===0)setOrderedDyeIds(o=>o.filter(id=>id!==it.id));
+                                            setDyeMap(p=>{const n={...p};if(!n[it.id])n[it.id]={};if(newCnt===0){const{[furId]:_,...r}=n[it.id];n[it.id]=r;}else n[it.id]={...n[it.id],[furId]:{name:furName,count:newCnt,itemId:furId}};if(Object.keys(n[it.id]).length===0)delete n[it.id];return n;});
+                                          }}>−</button>
+                                        <span style={{minWidth:14,textAlign:"center",fontWeight:600,color:"var(--acc)"}}>{furDyeCnt}</span>
+                                        <button className="sbi-btn" style={{width:18,height:18,fontSize:11}}
+                                          onClick={()=>{
+                                            const cur=furnitureDyesRef.current;
+                                            const newCnt=(cur[furId]?.[it.id]||0)+1;
+                                            const next={...cur,[furId]:{...(cur[furId]||{}),[it.id]:newCnt}};
+                                            setFurnitureDyes(next);
+                                            const total=Object.values(next).reduce((s,d)=>s+(d[it.id]||0),0);
+                                            setQuantities(p=>({...p,[it.id]:total}));
+                                            setDyeMap(p=>{const n={...p};if(!n[it.id])n[it.id]={};n[it.id]={...n[it.id],[furId]:{name:furName,count:newCnt,itemId:furId}};return n;});
+                                          }}>＋</button>
+                                      </div>
+                                    </div>
+                                  );
+                                }) : (
+                                  <div style={{fontSize:10,color:"var(--ts)",display:"flex",alignItems:"center",gap:4,padding:"1px 0"}}>
+                                    <span style={{color:"var(--tm)"}}>• </span>
+                                    <span style={{flex:1}}>其他</span>
+                                    <div className="sbi-ctrl-group">
+                                      <button className="sbi-btn" style={{width:18,height:18,fontSize:11}} disabled={totalNeed===0} onClick={()=>adjustQty(it.id,-1)}>−</button>
+                                      <span style={{minWidth:14,textAlign:"center",fontWeight:600,color:"var(--acc)"}}>{totalNeed}</span>
+                                      <button className="sbi-btn" style={{width:18,height:18,fontSize:11}} onClick={()=>adjustQty(it.id,1)}>＋</button>
+                                    </div>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
-                        <div className="sbi-ctrl">
-                          <button className="sbi-btn" onClick={() => adjustQty(it.id, -1)} disabled={(quantities[it.id]||0)===0}>−</button>
-                          <span className="sbiq">{quantities[it.id]}</span>
-                          <button className="sbi-btn" onClick={() => adjustQty(it.id, 1)}>＋</button>
-                          <span style={{margin:"0 3px",color:"var(--br)"}}>|</span>
-                          <button className="sbi-btn" onClick={() => adjustBought(it.id, -1)} disabled={(bought[it.id]||0)===0}>−</button>
-                          <span className="sbiq" style={{color:done?"#3fb950":undefined}}>{bought[it.id]||0}</span>
-                          <button className="sbi-btn" onClick={() => adjustBought(it.id, 1)} disabled={(bought[it.id]||0)>=(quantities[it.id]||0)}>＋</button>
+                        <div style={{display:"flex",alignItems:"flex-start",flexShrink:0}}>
+                          <span style={{minWidth:86,textAlign:"center",fontSize:14,fontWeight:600,color:"var(--acc)",fontVariantNumeric:"tabular-nums",paddingTop:2}}>{quantities[it.id]||0}</span>
+                          <div className="sbi-ctrl-group" style={{minWidth:86,justifyContent:"center"}}>
+                            <button className="sbi-btn" onClick={()=>adjustBought(it.id,-1)} disabled={(bought[it.id]||0)===0}>−</button>
+                            <span className="sbiq" style={{color:done?"#3fb950":undefined}}>{bought[it.id]||0}</span>
+                            <button className="sbi-btn" onClick={()=>adjustBought(it.id,1)} disabled={(bought[it.id]||0)>=(quantities[it.id]||0)}>＋</button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -989,7 +1206,7 @@ export default function App() {
             </div>
           </div>
           <div className="ft-bottom">
-            <span style={{color:"var(--ts)"}}>{t.footerAuthor("1.4")}</span>
+            <span style={{color:"var(--ts)"}}>{t.footerAuthor("1.5")}</span>
           </div>
         </footer>
 
